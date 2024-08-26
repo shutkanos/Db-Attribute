@@ -1,0 +1,5 @@
+/_db_info.py
+*.log
+*.pyw
+.idea
+**/__pycache__
