@@ -238,10 +238,14 @@ class Cheaker:
                 return to_class(obj, _use_db=True, _obj_dbatribute=_obj_dbatribute)
         return obj
 
-    def this_container_class(self, obj):
+    def this_container_class(self, obj, this_is_cls=False):
+        if this_is_cls:
+            return obj in [dict, list, set] or obj in self.users_db_classes
         return obj.__class__ in [dict, list, set] or obj.__class__ in self.users_db_classes
 
-    def this_db_atribute_container_class(self, obj):
+    def this_db_atribute_container_class(self, obj, this_is_cls=False):
+        if this_is_cls:
+            return obj in [DbDict, DbList, DbSet] or obj in self.users_db_classes.values()
         return obj.__class__ in [DbDict, DbList, DbSet] or obj.__class__ in self.users_db_classes.values()
 
 cheaker = Cheaker()
