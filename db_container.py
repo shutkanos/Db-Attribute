@@ -1,4 +1,4 @@
-import collections, time, json, copy
+import collections, time, json, copy, ast
 
 import UserSet
 
@@ -37,13 +37,22 @@ class DbContainer:
         data = object.__getattribute__(self, 'data')
 
     def dumps(self):
-        data1 = ", ".join([i.dumps() if cheaker.this_db_atribute_container_class(i) else json.dumps(i) for i in self.data])
-        data2 = {str(key): value.__class__.__name__ for key, value in enumerate(self.data) if cheaker.this_db_atribute_container_class(value)}
-        return f'{"{"}"data": [{data1}], "sittings": {str(data2)}{"}"}'
+        data = [convert_atr_value_to_json_value(i) for i in self.data]
+        data_value = {key: value.__class__.__name__ for key, value in enumerate(self.data) if value.__class__ == tuple}
+        """
+        'd': 'data' data: [1, [3, 6], 3] | {'1': 2}
+        't': 'type this obj': 'DbDict' | 'DbSet' | ...
+        'dt': 'data types': {'1': 'DbList'}
+        'kt': 'keys types': {'1': int} (for DbDict)
+        """
+        return f'{"{"}"t": "{self.__class__.__name__}", "dt": {json.dumps(data_value)}, "d": {json.dumps(data)}{"}"}'
 
-    def loads(self, s: str):
+    @staticmethod
+    def loads(s: str):
         temp_data = json.loads(s)
-        pass
+        if not(isinstance(temp_data, dict) and 'd' in temp_data and 't' in temp_data and 'dt' in temp_data):
+            return {'status_code': 400}
+
 
 class DbDict(DbContainer, collections.UserDict):
     _standart_class=dict
@@ -90,7 +99,10 @@ class DbDict(DbContainer, collections.UserDict):
         return data
 
     def dumps(self):
-        return f''
+        data = {convert_atr_key_to_json_key(key): convert_atr_value_to_json_value(self.data[key]) for key in self.data}
+        data_value = {key: self.data[key].__class__.__name__ for key in self.data if self.data[key].__class__ == tuple}
+        data_key = {key: key.__class__.__name__ for key in self.data if key.__class__ in [tuple, int, bool]}
+        return f'{"{"}"t": "{self.__class__.__name__}", "dt": {json.dumps(data_value)}, "dk": {json.dumps(data_key)}, "d": {json.dumps(data)}{"}"}'
 
 class DbList(DbContainer, collections.UserList):
     _standart_class=list
@@ -248,10 +260,39 @@ class Cheaker:
             return obj in [DbDict, DbList, DbSet] or obj in self.users_db_classes.values()
         return obj.__class__ in [DbDict, DbList, DbSet] or obj.__class__ in self.users_db_classes.values()
 
-cheaker = Cheaker()
-
 def list_to_dict(obj):
     return {i: obj[i] for i in range(len(obj))}
+
+def convert_atr_value_to_json_value(value):
+    return value.dumps() if cheaker.this_db_atribute_container_class(value) else json.dumps(value)
+
+def conver_json_value_to_atr_value(value, type_value):
+    pass
+
+def convert_atr_key_to_json_key(key):
+    """For DbDict"""
+    res = key
+    if key.__class__ == tuple:
+        res = str(key)
+    elif key.__class__ == bool:
+        res = ' True ' if key else ' False '
+    return json.dumps(res)
+
+def convert_json_key_to_atr_key(key, type_key):
+    """For DbDict"""
+    res = json.loads(key)
+    if type_key == 'int':
+        return int(res)
+    if type_key == 'typle':
+        return ast.literal_eval(str(res))
+    if type_key == 'bool':
+        return True if res == ' True ' else False
+    return res
+
+
+cheaker = Cheaker()
+
+
 
 
 if __name__ == "__main__":
@@ -320,11 +361,25 @@ if __name__ == "__main__":
     A[0][0] = 3
     del A[0][1]
     A[0][1].add(2)
-    print(A, type(A))
-    print(B, type(B))
-    print(C, type(C))
-
-    #A = DbList([(1, 4), 2, 3, {4, 5, 6}], _use_db=True)
-    #print(A.dumps(), type(A.dumps()))
+    if A != {0: [3, {1, 2}], 1: {2}, 2: {5: 6}, 3: 4} or B != [[1], [4], [3], {2: [5]}, {1, 3, 4}] or C != {(3, 2), 4, (1, 4)} or type(A) != DbDict or type(B) != DbList or type(C) != DbSet:
+        print(A, type(A))
+        print(B, type(B))
+        print(C, type(C))
+    print(7)
+    A = DbDict({0: [1, 4, {1}], 1: {2}, 2: {5:6}, 3: 4}, _use_db = True)
+    B = DbList([{2:[5]}, [1], [4], [3], {1, 3, 4}], _use_db = True)
+    C = DbSet([(1, 4), (3, 2), 4], _use_db = True)
+    print(A.dumps(), type(A.dumps()))
+    print(B.dumps(), type(B.dumps()))
+    print(C.dumps(), type(C.dumps()))
+    print(8)
+    a = json.loads(A.dumps())
+    a2 = json.loads(a['d']['0'])
+    b = json.loads(B.dumps())
+    b2 = json.loads(b['d'][0])
+    print(a['d']['0'], type(a['d']['0']))
+    print(a2['d'][2], type(a2['d'][2]))
+    print(b['d'][0], type(b['d'][0]))
+    print(b2['d']['2'], type(b2['d']['2']))
 
 
