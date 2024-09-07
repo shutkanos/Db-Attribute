@@ -1,4 +1,4 @@
-import db_container
+import db_class
 import dataclasses
 
 @dataclasses.dataclass(kw_only=True)

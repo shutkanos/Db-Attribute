@@ -1,7 +1,7 @@
 import functools
 
 from connector import conn, cur, notconn
-import db_container
+import db_class
 
 def convert_atribute_type_to_mysql_type(atribute_type, len_varchar=50):
     if atribute_type == str:
