@@ -60,7 +60,7 @@ class DbField(dataclasses.Field):
 
 
 @dataclasses.dataclass
-class Db_Atribute:
+class DbAtribute:
     id: int
     _db_Atribute__list_db_atributes: ClassVar[list] = []
 
