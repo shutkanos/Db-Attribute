@@ -1,39 +1,37 @@
-import db_atribute
-from dataclasses import  dataclass, field
+from dataclasses import dataclass, field
 from typing import ClassVar
 import sys
 
-def dbDecorator(cls=None, /, *, arg1=True, arg2=False):
-    def wrap(cls):
-        #print(cls, arg1, arg2)
-        #print(cls.__dict__)
-        #print(cls.__anotations__)
-        #print(cls.__init__)
-        def new_init(*args, **kwargs):
-            print(f'{kwargs=}')
-            return cls.__old_init__(*args, **kwargs)
-        cls.__old_init__ = cls.__init__
-        cls.__init__ = new_init
-        return cls
-    if cls is None:
-        return wrap
-    return wrap(cls)
+import db_atribute
+from db_atribute import dbDecorator, Db_Atribute, db_field
 
 @dbDecorator
-@dataclass(kw_only=True)
-class User(db_atribute.Db_Atribute):
-    name: str
-    age: int
-    ban: bool
-    list_of_books: list
-    sittings: dict
+@dataclass
+class User(Db_Atribute):
+    other_dict_information: dict = field(default_factory=lambda:{})
+    name: str = db_field(default='NotSet')
+    age: int = db_field(default=-1)
+    ban: bool = db_field(default=False)
+    other_int_information: int = 100
+    list_of_books: list = db_field(default_factory=lambda:[])
+    sittings: dict = db_field(default_factory=lambda:{})
+
+@dbDecorator
+@dataclass
+class User2(Db_Atribute):
+    other_dict_information: dict = field(default_factory=lambda:{})
+    name: str = 'NotSet'
+    age: int = -1
+    ban: bool = False
+    other_int_information: int = 100
+    list_of_books: list = field(default_factory=lambda:[])
+    sittings: dict = field(default_factory=lambda:{})
     _db_Atribute__list_db_atributes: ClassVar[list] = ['name', 'age', 'ban', 'list_of_books', 'sittings']
 
-a = User(id=10, name='shutkanos', age=748924, ban=False, list_of_books=['Hello world!', 'name of hiro'], sittings={'user': {'language': 'ru'}, 'other': {'other1', 'other2'}})
-#a = User(id=10)
+#a = User(10, name='shutka', age=748924, ban=False, list_of_books=['Hello world!', 'name of hiro'], sittings={'user': {'language': 'ru'}, 'other': {'other1', 'other2'}})
+a = User(10)
 print(a)
 print(a.__dict__)
-#print(a.__class__._db_Atribute__list_db_atributes)
 
 """print(sys.getsizeof(a))
 print(sys.getsizeof(a.__dict__))

@@ -38,10 +38,10 @@ def convert_mysql_value_to_atribute_value(mysql_value, mysql_type):
     if temp_data['status_code'] != 200:
         return temp_data
     atribute_type = temp_data['data']
-    if atribute_type in (int, float, bool, str):
+    if atribute_type in (int, float, str):
         return {'status_code': 200, 'data': mysql_value}
-    #if atribute_type == str:
-    #    return {'status_code': 200, 'data': json.loads(mysql_value)}
+    if atribute_type == bool:
+        return {'status_code': 200, 'data': True if mysql_value else False}
     if atribute_type == db_class.DbContainer:
         return {'status_code': 200, 'data': db_class.DbContainer.loads(mysql_value)}
     return {'status_code': 300}
@@ -209,10 +209,10 @@ class Db_work:
         #print(f'get_atribute_value {value=} {type_mysql_value=}')
         return convert_mysql_value_to_atribute_value(value, type_mysql_value)
 
-db_work = Db_work(conn_=conn, cur_=cur, notconn_=notconn)
+db_work_obg = Db_work(conn_=conn, cur_=cur, notconn_=notconn)
 
 if __name__ == "__main__":
-    print(db_work.active_tables)
+    print(db_work_obg.active_tables)
     """
     print("del_table", db_work.deleate_table('cls_user_atr_age'))
     print("create_atr_table", db_work.create_atribute_table(class_name='user', atribute_name='age', atribute_type=int))
