@@ -1,4 +1,5 @@
 import functools
+import json
 
 from connector import conn, cur, notconn
 import db_class
@@ -8,13 +9,13 @@ def convert_atribute_type_to_mysql_type(atribute_type, len_varchar=50):
         return {'status_code': 200, 'data': f'varchar({len_varchar})'}
     if atribute_type in (int, float, bool):
         return {'status_code': 200, 'data': atribute_type.__name__.upper()}
-    if db_container.cheaker.this_db_atribute_container_class(atribute_type, this_is_cls=True):
+    if db_class.cheaker.this_db_atribute_container_class(atribute_type, this_is_cls=True):
         return {'status_code': 200, 'data': 'json'}
     return {'status_code': 300}
 
 def convert_mysql_type_to_atribute_type(mysql_type):
     """for get mysql_type use Db_work.get_type_data_table"""
-    convert_dict = {'varchar': str, 'int': int, 'float': float, 'tinyint': bool, 'json': db_container.DbContainer}
+    convert_dict = {'varchar': str, 'int': int, 'float': float, 'tinyint': bool, 'json': db_class.DbContainer}
     if mysql_type in convert_dict:
         return {'status_code': 200, 'data': convert_dict[mysql_type]}
     return {'status_code': 300}
@@ -24,9 +25,11 @@ def convert_atribute_value_to_mysql_value(atribute_value):
     if atribute_type in (int, float, bool):
         return {'status_code': 200, 'data': f'{atribute_value}'}
     if atribute_type == str:
-        return {'status_code': 200, 'data': conver_to_sql_string(atribute_value)}
-    if db_container.cheaker.this_db_atribute_container_class(atribute_type, this_is_cls=True):
-        return {'status_code': 200, 'data': atribute_value.dumps()}
+        return {'status_code': 200, 'data': json.dumps(atribute_value)}
+    if db_class.cheaker.this_db_atribute_container_class(atribute_type, this_is_cls=True):
+        return {'status_code': 200, 'data': json.dumps(atribute_value.dumps())}
+    if db_class.cheaker.this_container_class(atribute_type, this_is_cls=True):
+        return {'status_code': 300}
     return {'status_code': 300}
 
 def convert_mysql_value_to_atribute_value(mysql_value, mysql_type):
@@ -37,44 +40,19 @@ def convert_mysql_value_to_atribute_value(mysql_value, mysql_type):
     atribute_type = temp_data['data']
     if atribute_type in (int, float, bool, str):
         return {'status_code': 200, 'data': mysql_value}
-    if isinstance(atribute_type, db_container.DbContainer):
-        return {'status_code': 200, 'data': db_container.DbContainer.loads(mysql_value)}
+    #if atribute_type == str:
+    #    return {'status_code': 200, 'data': json.loads(mysql_value)}
+    if atribute_type == db_class.DbContainer:
+        return {'status_code': 200, 'data': db_class.DbContainer.loads(mysql_value)}
     return {'status_code': 300}
 
+"""
 def conver_to_sql_string(string):
     replace_characters = {'\0': '\\0', '\'': '\\\'', '\"': '\\"', '\b': '\\b', '\n': '\\n', '\r': '\\r', '\t': '\\t', '\x1a':'\\x1a', '\\': '\\\\'}
     for i in replace_characters:
         string.replace(i, replace_characters[i])
-    return f"'{string}'"
-
-def secure_sql(obj, cheak_container=True, bloc_symbol=None):
-    """
-    Protect str from SQLi attack, use it if user can change or input this data in programm.
-    Secure_sql bloced: #${(,` ;:*&[\./%]~)}"'?
-    :param obj: input data, example: name: 'melon' or names: ['melon', 'melon2']
-    :param cheak_container: if obj is container and cheak_container is True, check the elements of obj with secure_sql, defaults to True
-    :type cheak_container: bool
-    :param bloc_symbol: Which symbols should be blocked, example: {'-', '|'}
-    :type bloc_symbol: set | None
-    :return: if False: it's ok, if True: it's SQLi attack
-    :rtype: bool
-    """
-    if cheak_container:
-        if isinstance(obj, (list, db_container.DbList, set, db_container.DbSet)):
-            return any((secure_sql(i) for i in obj))
-        if isinstance(obj, (dict, db_container.DbDict)):
-            return any((secure_sql(obj[i]) for i in obj))
-    if type(obj) != str:
-        return False
-    if obj[0] in "\"'" and obj[-1] in "\"'":
-        set_obj = set(obj[1:-1])
-    else:
-        set_obj = set(obj)
-    if {' ', ',', ':', ';', '[', ']', '\\', '/', '.', '`', '~', '&', '?', '%', '#', '$', '*', '(', ')', '{', '}'} & set_obj:
-        return True
-    if bloc_symbol and bloc_symbol & set_obj:
-        return True
-    return False
+    return f'{string}'
+"""
 
 def sql_decorator(standart_return=None, this_class_method=True):
     def active_decorator(func):
@@ -101,6 +79,9 @@ def sql_decorator(standart_return=None, this_class_method=True):
         return func_wrapper
     return active_decorator
 
+def get_table_name(class_name:str, atribute_name:str):
+    return f'cls_{class_name}_atr_{atribute_name}'.lower()
+
 class Db_work:
     def __init__(self, conn_=None, cur_=None, notconn_=None):
         self.conn = conn_
@@ -113,15 +94,6 @@ class Db_work:
         if self.notconn is None:
             self.notconn = notconn
         self.active_tables = self.list_tables()['data']
-
-    def create_atribute_table(self, class_name: str, atribute_name: str, atribute_type, len_varchar:int=50):
-        table_name = f'cls_{class_name}_atr_{atribute_name}'.lower()
-        temp_data = convert_atribute_type_to_mysql_type(atribute_type=atribute_type, len_varchar=len_varchar)
-        if temp_data['status_code'] != 200: return temp_data
-        atribute_table_type = temp_data['data']
-        temp_data = self.create_table(table_name=table_name, atributes=[('data', atribute_table_type)])
-        if temp_data['status_code'] != 200: return temp_data
-        return {'status_code': 200}
 
     @sql_decorator()
     def list_tables(self):
@@ -150,9 +122,11 @@ class Db_work:
 
     @sql_decorator()
     def get_type_data_table(self, table_name: str):
+        #print(table_name)
         if table_name not in self.active_tables:
             return {'status_code': 302}
-        self.cur.execute(f"""SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'db_atribute' AND TABLE_NAME = '{table_name}';""")
+        self.cur.execute(f"""SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE COLUMN_NAME = 'data' AND TABLE_SCHEMA = 'db_atribute' AND TABLE_NAME = '{table_name}';""")
+        #print(f"""SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'db_atribute' AND TABLE_NAME = '{table_name}';""")
         return {'status_code': 200, 'data': self.cur.fetchall()[-1][0]}
 
     @sql_decorator()
@@ -195,24 +169,73 @@ class Db_work:
         self.conn.commit()
         return {'status_code': 200}
 
+    def create_atribute_table(self, class_name: str, atribute_name: str, atribute_type, len_varchar:int=50):
+        """
+        create atribute table
+        :param class_name: name of class atribute (obj.__class__.__name__)
+        :param atribute_name: name of atribute, example: 'name', 'id', 'nickname', 'password_hash'
+        :param atribute_type: type of atribute (type(obj)), example: str, DbList, int, bool, DbSet (for create DbList, DbSet use db_class.cheaker.create_one_db_class)
+        :param len_varchar: len for string atributes, example: with len_varchar=5, atribute name='VeryLongName' convert to 'VeryL'
+        :return: {'status_code': 300 | 200 | 100} (for 'status_code' read in connector)
+        """
+        table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)
+        temp_data = convert_atribute_type_to_mysql_type(atribute_type=atribute_type, len_varchar=len_varchar)
+        if temp_data['status_code'] != 200: return temp_data
+        atribute_table_type = temp_data['data']
+        temp_data = self.create_table(table_name=table_name, atributes=[('data', atribute_table_type)])
+        if temp_data['status_code'] != 200: return temp_data
+        return {'status_code': 200}
+
     @sql_decorator()
-    def add_atribute_value(self, table_name:str, ID:int, data, update_value_if_exists:bool=True, ignore_302:bool=False):
+    def add_atribute_value(self, class_name: str, atribute_name: str, ID:int, data, update_value_if_exists:bool=True, ignore_302:bool=False):
+        table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)
         temp_data = convert_atribute_value_to_mysql_value(data)
-        if temp_data['status_code'] != 200:return temp_data
+        if temp_data['status_code'] != 200: return temp_data
         value = temp_data['data']
-        print(value)
         temp_data = self.add_value_by_id(table_name=table_name, ID=ID, value=value, update_value_if_exists=update_value_if_exists)
         if temp_data['status_code'] == 302 and ignore_302: return {'status_code': 200}
         if temp_data['status_code'] != 200: return temp_data
         return {'status_code': 200}
 
+    @sql_decorator()
+    def get_atribute_value(self, class_name: str, atribute_name: str, ID:int):
+        table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)
+        temp_data = self.get_values_by_id(table_name=table_name, ID=ID)
+        if temp_data['status_code'] != 200: return temp_data
+        value = temp_data['data'][0]
+        temp_data = self.get_type_data_table(table_name)
+        if temp_data['status_code'] != 200: return temp_data
+        type_mysql_value = temp_data['data']
+        #print(f'get_atribute_value {value=} {type_mysql_value=}')
+        return convert_mysql_value_to_atribute_value(value, type_mysql_value)
+
+db_work = Db_work(conn_=conn, cur_=cur, notconn_=notconn)
+
 if __name__ == "__main__":
-    db_work = Db_work(conn_=conn, cur_=cur, notconn_=notconn)
+    print(db_work.active_tables)
+    """
     print("del_table", db_work.deleate_table('cls_user_atr_age'))
-    #print("create_atr_table", db_work.create_atribute_table(class_name='user', atribute_name='age', atribute_type=str))
-    print("create_table", db_work.create_table('cls_user_atr_age', [('data', 'json')]))
+    print("create_atr_table", db_work.create_atribute_table(class_name='user', atribute_name='age', atribute_type=int))
+    print("add_atribute_value", db_work.add_atribute_value(class_name='user', atribute_name='age', ID=513675, data=100))
+    print("get_atribute", db_work.get_atribute_value(class_name='user', atribute_name='age', ID=513675))
+
     print("get_value_type", db_work.get_type_data_table('cls_user_atr_age'))
-    #print("add_value", db_work.add_atribute_value('cls_user_atr_age', 513675, 'WhAt'))
-    print("add_value", db_work.add_atribute_value('cls_user_atr_age', 513675, '{"key": "its key", "key2": [1, 2, 3, "hello"]}'))
-    print("get_value", db_work.get_values_by_id('cls_user_atr_age', 513675))
+    A = db_class.DbDict({0: [1, 4, {1}], 1: {2}, 2: {5: 6}, 3: (7, 8), 4: True, 5: False, (6, 7): [1, 3], True: 0}, _use_db = True)
+    B = db_class.DbList([{2:[5]}, [1], [4], [3], {1, 3, 4}, True, True, (1, 2), (1, 2)], _use_db = True)
+    C = db_class.DbSet([(1, 4), (3, 2), 4, True, '/Hello\n'], _use_db = True)
+    print("add_value", db_work.add_atribute_value('cls_user_atr_age', 513675, A))
+    print("get_atribute", db_work.get_atribute_value('cls_user_atr_age', 513675))
+    a = db_work.get_atribute_value('cls_user_atr_age', 513675)['data']
+    print(A, type(A))
+    print(a, type(a))
+
+    print("add_value", db_work.add_atribute_value('cls_user_atr_age', 513676, B))
+    print("get_atribute", db_work.get_atribute_value('cls_user_atr_age', 513676))
+    b = db_work.get_atribute_value('cls_user_atr_age', 513676)['data']
+    print(b, type(b))
+
+    print("add_value", db_work.add_atribute_value('cls_user_atr_age', 513677, C))
+    print("get_atribute", db_work.get_atribute_value('cls_user_atr_age', 513677))
+    c = db_work.get_atribute_value('cls_user_atr_age', 513677)['data']
+    print(c, type(c))"""
 

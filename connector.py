@@ -12,7 +12,7 @@ status_cod = {100: {"eng": "There is no connection to the database", "ru": "Не
               302: {"ru": "Таблицы не существует"},
               303: {"ru": "Объект уже в таблице"},
               400: {"eng": "Erroneous use of the function", "ru": "Ошибка использования функции"},
-              #401: {"eng": "Erroneous or intentional use of vulnerabilities", "ru": "Ошибочное или намеренное использование уязвимостей"},
+              #not used: 401: {"eng": "Erroneous or intentional use of vulnerabilities", "ru": "Ошибочное или намеренное использование уязвимостей"}
               402: {"ru": "Непредвиденная ошибка функции"},
               403: {"ru": "Не поддерживается данной версией программы"}}
 

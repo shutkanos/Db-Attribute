@@ -122,7 +122,8 @@ class DbDict(DbContainer, collections.UserDict):
         data = {convert_atr_key_to_json_key(key): convert_atr_value_to_json_value(self.data[key]) for key in self.data}
         data_value = {convert_atr_key_to_json_key(key): self.data[key].__class__.__name__ for key in self.data if self.data[key].__class__ == tuple}
         data_key = {convert_atr_key_to_json_key(key): key.__class__.__name__ for key in self.data if key.__class__ in [tuple, int, bool]}
-        return f'{"{"}"t": "{self.__class__.__name__}", "dt": {json.dumps(data_value)}, "dk": {json.dumps(data_key)}, "d": {json.dumps(data)}{"}"}'
+        return json.dumps({'t': self.__class__.__name__, 'dt': data_value, 'dk': data_key, 'd': data})
+        #return f'{"{"}"t": "{self.__class__.__name__}", "dt": {json.dumps(data_value)}, "dk": {json.dumps(data_key)}, "d": {json.dumps(data)}{"}"}'
 
     @staticmethod
     def loads(s: str, _obj_dbatribute=None):
@@ -442,19 +443,29 @@ if __name__ == "__main__":
         print(a, type(a))
         print(b, type(b))
     print(8)
-    A = DbDict({0: [1, 4, {1}], 1: {2}, 2: {5:6}, 3: (7, 8), 4: True, 5: False, (6, 7): [1, 2]}, _use_db = True)
+    A = DbDict({0: [1, 4, {1}], 1: {2}, 2: {5:6}, 3: (7, 8), 4: True, 5: False, (6, 7): [1, 2], '8': [1]}, _use_db = True)
     B = DbList([{2:[5]}, [1], [4], [3], {1, 3, 4}, True, True, (1, 2), (1, 2)], _use_db = True)
-    C = DbSet([(1, 4), (3, 2), 4, True, '/Hello\\'], _use_db = True)
+    C = DbSet([(1, 4), (3, 2), 4, True, '/Hello\n'], _use_db = True)
     a = DbContainer.loads(A.dumps())
     b = DbContainer.loads(B.dumps())
     c = DbContainer.loads(C.dumps())
+    #print(A.dumps())
+    #e = json.loads(A.dumps())
+    #print(e)
+    #print(e['d']['"8"'])
     if A != a or B != b or C != c:
         print(A.dumps(), type(A.dumps()))
+        print(A, type(A))
         print(a, type(a))
         print(B.dumps(), type(B.dumps()))
+        print(B, type(B))
         print(b, type(b))
         print(C.dumps(), type(C.dumps()))
+        print(C, type(C))
         print(c, type(c))
+    print(9)
+    A = DbDict({0: [1, 4, {1}], 1: {2}, True: 0}, _use_db = True)
+    print(A)
 
 
 
