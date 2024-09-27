@@ -3,3 +3,4 @@
 *.pyw
 .idea
 **/__pycache__
+test*

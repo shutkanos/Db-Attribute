@@ -2,14 +2,19 @@ import dataclasses
 from typing import ClassVar
 from dataclasses import MISSING
 
-import db_class
-import db_work
-from db_work import db_work_obg as dwo
+import db_atribute.db_class as db_class
+import db_atribute.db_work as db_work
 
-def dbDecorator(cls=None, /, kw_only=False):
+def dbDecorator(cls=None, /, kw_only=False, _db_Atribute_dbworkobj=None):
     def wrap(cls):
+        if (('_db_Atribute_dbworkobj' not in cls.__dict__) or cls._db_Atribute_dbworkobj is None) and _db_Atribute_dbworkobj is None:
+            raise Exception('set _db_Atribute_dbworkobj in class (_db_Atribute_dbworkobj: ClassVar[list] = *dbwork obj*) or give dbwork obj to dbDecorator')
+        if not _db_Atribute_dbworkobj is None:
+            cls._db_Atribute_dbworkobj = _db_Atribute_dbworkobj
+        dbworkobj = cls._db_Atribute_dbworkobj
         if '_db_Atribute__list_db_atributes' not in cls.__dict__:
-            cls._db_Atribute__list_db_atributes = [i for i in cls.__annotations__ if isinstance(cls.__dataclass_fields__[i], DbField)]
+            cls._db_Atribute__list_db_atributes = []
+        cls._db_Atribute__list_db_atributes = list(set(cls._db_Atribute__list_db_atributes + [i for i in cls.__annotations__ if isinstance(cls.__dataclass_fields__[i], DbField)]))
 
         set_db_atributes = set(cls._db_Atribute__list_db_atributes)
         if not kw_only:
@@ -33,7 +38,7 @@ def dbDecorator(cls=None, /, kw_only=False):
                 ID = args[0]
             temp_data = set()
             for i in db_args_not_set:
-                if (table_name:=db_work.get_table_name(cls.__name__, i)) not in dwo.active_tables or (not dwo.get_values_by_id(table_name, ID)['data']):
+                if (table_name:= db_work.get_table_name(cls.__name__, i)) not in dbworkobj.active_tables or (not dbworkobj.get_values_by_id(table_name, ID)['data']):
                     temp_data.add(i)
             db_args_not_set -= temp_data
             kwargs |= {i: NotSet for i in db_args_not_set}
@@ -44,8 +49,6 @@ def dbDecorator(cls=None, /, kw_only=False):
     if cls is None:
         return wrap
     return wrap(cls)
-
-dataclasses.field
 
 def db_field(*, default=MISSING, default_factory=MISSING, init=True, repr=True, hash=None, compare=True, metadata=None, kw_only=MISSING):
     if default is not MISSING and default_factory is not MISSING:
@@ -63,6 +66,7 @@ class DbField(dataclasses.Field):
 class DbAtribute:
     id: int
     _db_Atribute__list_db_atributes: ClassVar[list] = []
+    _db_Atribute_connobj: ClassVar[list] = None
 
     def __setattr__(self, key, value):
         object.__getattribute__(self, '_db_atribute_set_attr')(key, value)
@@ -78,17 +82,17 @@ class DbAtribute:
         if key in cls.__dict__['_db_Atribute__list_db_atributes']:
             obj = db_class.cheaker.create_one_db_class(value, _obj_dbatribute=self)
             cls_name = cls.__name__
-            if db_work.get_table_name(cls_name, key) not in dwo.active_tables:
-                dwo.create_atribute_table(class_name=cls_name, atribute_name=key, atribute_type=type(obj))
-            dwo.add_atribute_value(class_name=cls_name, atribute_name=key, ID=self_dict['id'], data=obj)
+            if db_work.get_table_name(cls_name, key) not in cls._db_Atribute_dbworkobj.active_tables:
+                cls._db_Atribute_dbworkobj.create_atribute_table(class_name=cls_name, atribute_name=key, atribute_type=type(obj))
+            cls._db_Atribute_dbworkobj.add_atribute_value(class_name=cls_name, atribute_name=key, ID=self_dict['id'], data=obj)
         else:
             object.__setattr__(self, key, value)
 
     def _db_atribute_get_attr(self, key):
         if key[0] == '_' or '_db_Atribute__list_db_atributes' not in (cls_dict := object.__getattribute__(self, '__class__').__dict__) or key not in cls_dict['_db_Atribute__list_db_atributes']:
             return object.__getattribute__(self, key)
-
-        temp_data = dwo.get_atribute_value(class_name=self.__class__.__name__, atribute_name=key, ID=object.__getattribute__(self, 'id'))
+        cls = object.__getattribute__(self, '__class__')
+        temp_data = cls._db_Atribute_dbworkobj.get_atribute_value(class_name=self.__class__.__name__, atribute_name=key, ID=object.__getattribute__(self, 'id'))
         if temp_data['status_code'] != 200:
             return None
         #print(f'_db_atribute_get_attr {key} {temp_data["data"]}')
@@ -102,7 +106,3 @@ class DbAtribute:
         :return: None
         """
         pass
-
-#a = Db_Atribute(id=10)
-
-#print(a)

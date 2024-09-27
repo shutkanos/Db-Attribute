@@ -1,5 +1,4 @@
 from mysql.connector import connect
-from _db_info import host, user, password, database
 
 """Used mysql"""
 
@@ -11,16 +10,21 @@ status_cod = {100: {"eng": "There is no connection to the database", "ru": "Не
               301: {"ru": "Таблица уже существует"},
               302: {"ru": "Таблицы не существует"},
               303: {"ru": "Объект уже в таблице"},
+              304: {"ru": "Объект не найден"},
               400: {"eng": "Erroneous use of the function", "ru": "Ошибка использования функции"},
               #not used: 401: {"eng": "Erroneous or intentional use of vulnerabilities", "ru": "Ошибочное или намеренное использование уязвимостей"}
               402: {"ru": "Непредвиденная ошибка функции"},
               403: {"ru": "Не поддерживается данной версией программы"}}
 
-try:
-    conn = connect(host=host, user=user, password=password, database=database)
-    cur = conn.cursor()
-    notconn = False
-except:
-    conn = None
-    cur = None
-    notconn = True
+class Connection:
+    """Used mysql db"""
+    def __init__(self, /, *, user, password, database, host='127.0.0.1', port=3306, **kwargs):
+        """*for params see 'https://dev.mysql.com/doc/connector-python/en/connector-python-connectargs.html'*"""
+        try:
+            self.conn = connect(host=host, port=port, user=user, password=password, database=database, **kwargs)
+            self.cur = self.conn.cursor()
+            self.notconn = False
+        except:
+            self.conn = None
+            self.cur = None
+            self.notconn = True

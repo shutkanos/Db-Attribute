@@ -1,11 +1,14 @@
 from dataclasses import dataclass, field
-from typing import ClassVar
-import sys
 
-import db_atribute
-from db_atribute import dbDecorator, DbAtribute, db_field
+from db_atribute import db_work
+from db_atribute import dbDecorator, DbAtribute, db_field, connector
 
-@dbDecorator
+from _db_info import host, user, password, database
+
+connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
+db_work_obj = db_work.Db_work(connect_obj)
+
+@dbDecorator(_db_Atribute_dbworkobj=db_work_obj)
 @dataclass
 class User(DbAtribute):
     other_dict_information: dict = field(default_factory=lambda:{})

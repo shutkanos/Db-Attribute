@@ -28,18 +28,25 @@ with `_db_Atribute__list_db_atributes`
 ```python
 from dataclasses import dataclass, field
 from typing import ClassVar
-from db_atribute import dbDecorator, DbAtribute
 
-@dbDecorator
+from db_atribute import dbDecorator, DbAtribute, db_work, connector
+
+from _db_info import host, user, password, database
+
+connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
+db_work_obj = db_work.Db_work(connect_obj)
+
+
+@dbDecorator(_db_Atribute_dbworkobj=db_work_obj)
 @dataclass
 class User(DbAtribute):
-    other_dict_information: dict = field(default_factory=lambda:{})
+    other_dict_information: dict = field(default_factory=lambda: {})
     name: str = 'NotSet'
     age: int = -1
     ban: bool = False
     other_int_information: int = 100
-    list_of_books: list = field(default_factory=lambda:[])
-    sittings: dict = field(default_factory=lambda:{})
+    list_of_books: list = field(default_factory=lambda: [])
+    sittings: dict = field(default_factory=lambda: {})
     _db_Atribute__list_db_atributes: ClassVar[list] = ['name', 'age', 'ban', 'list_of_books', 'sittings']
 ```
 
@@ -49,9 +56,15 @@ without `_db_Atribute__list_db_atributes` (automatic created)
 
 ```python
 from dataclasses import dataclass, field
-from db_atribute import dbDecorator, DbAtribute, db_field
 
-@dbDecorator
+from db_atribute import dbDecorator, DbAtribute, db_field, db_work, connector
+
+from _db_info import host, user, password, database
+
+connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
+db_work_obj = db_work.Db_work(connect_obj)
+
+@dbDecorator(_db_Atribute_dbworkobj=db_work_obj)
 @dataclass
 class User(DbAtribute):
     other_dict_information: dict = field(default_factory=lambda:{})
@@ -68,13 +81,33 @@ class User(DbAtribute):
 with `id` (in other cases, id inheritance from DbAtribute.DbAtribute)
 
 ```python
-from dataclasses import dataclass, field
-from db_atribute import dbDecorator, DbAtribute, db_field
+from dataclasses import dataclass
+from db_atribute import dbDecorator, DbAtribute
+
+#craete db_work_obj
+
+@dbDecorator(_db_Atribute_dbworkobj=...) #... is db_work_obj
+@dataclass
+class User(DbAtribute):
+    id: int
+    #other code
+```
+
+### Example 4
+
+you can set _db_Atribute_dbworkobj in class
+
+```python
+from dataclasses import dataclass
+from typing import ClassVar
+from db_atribute import dbDecorator, DbAtribute
+
+#craete db_work_obj
 
 @dbDecorator
 @dataclass
 class User(DbAtribute):
-    id: int
+    _db_Atribute_dbworkobj: ClassVar = ... #*db_work_obj*
     #other code
 ```
 
@@ -87,7 +120,9 @@ if you need recreated obj, use only id.
 from dataclasses import dataclass, field
 from db_atribute import dbDecorator, DbAtribute, db_field
 
-@dbDecorator
+#craete db_work_obj
+
+@dbDecorator(_db_Atribute_dbworkobj=...)#... is db_work_obj
 @dataclass
 class User(DbAtribute):
     other_dict_information: dict = field(default_factory=lambda:{})
