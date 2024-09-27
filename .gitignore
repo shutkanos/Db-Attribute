@@ -1,4 +1,4 @@
-*/_db_info.py
+**/_db_info.py
 *.log
 *.pyw
 .idea
