@@ -151,5 +151,9 @@ print(user2) #User(id=2, other_dict_information={}, name='test name 2', age=-20,
 
 print(user1.__dict__) # {'id': 2, 'other_dict_information': {}, 'other_int_information': 100}
 print(user2.__dict__) # {'id': 2, 'other_dict_information': {}, 'other_int_information': 100}
-
 ```
+
+# Data base
+
+this module used mysql db, and for use it, you need install mysql from https://www.mysql.com/downloads
+
