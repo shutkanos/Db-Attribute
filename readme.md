@@ -37,7 +37,7 @@ connect_obj = connector.Connection(host=host, user=user, password=password, data
 db_work_obj = db_work.Db_work(connect_obj)
 
 
-@dbDecorator(_db_Atribute_dbworkobj=db_work_obj)
+@dbDecorator(_db_Atribute__dbworkobj=db_work_obj)
 @dataclass
 class User(DbAtribute):
     other_dict_information: dict = field(default_factory=lambda: {})
@@ -64,7 +64,7 @@ from _db_info import host, user, password, database
 connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
 db_work_obj = db_work.Db_work(connect_obj)
 
-@dbDecorator(_db_Atribute_dbworkobj=db_work_obj)
+@dbDecorator(_db_Atribute__dbworkobj=db_work_obj)
 @dataclass
 class User(DbAtribute):
     other_dict_information: dict = field(default_factory=lambda:{})
@@ -86,7 +86,7 @@ from db_atribute import dbDecorator, DbAtribute
 
 #craete db_work_obj
 
-@dbDecorator(_db_Atribute_dbworkobj=...) #... is db_work_obj
+@dbDecorator(_db_Atribute__dbworkobj=...) #... is db_work_obj
 @dataclass
 class User(DbAtribute):
     id: int
@@ -116,13 +116,15 @@ class User(DbAtribute):
 for create obj use id and other fields,
 if you need recreated obj, use only id.
 
+if you set new value for db_atribute or you update this atribute, the data of db_atribute automatic dump to database
+
 ```python
 from dataclasses import dataclass, field
 from db_atribute import dbDecorator, DbAtribute, db_field
 
 #craete db_work_obj
 
-@dbDecorator(_db_Atribute_dbworkobj=...)#... is db_work_obj
+@dbDecorator(_db_Atribute__dbworkobj=...)#... is db_work_obj
 @dataclass
 class User(DbAtribute):
     other_dict_information: dict = field(default_factory=lambda:{})
@@ -151,6 +153,77 @@ print(user2) #User(id=2, other_dict_information={}, name='test name 2', age=-20,
 
 print(user1.__dict__) # {'id': 2, 'other_dict_information': {}, 'other_int_information': 100}
 print(user2.__dict__) # {'id': 2, 'other_dict_information': {}, 'other_int_information': 100}
+```
+
+### Dump_mode
+
+if in any function you will work with obj, you can activate undump_mode,
+
+*dump_mode*: atributes don't save in self.__dict__, all changes automatic dump in db.
+
+*undump_mode*: all atributes save in self.__dict__, and won't dump in db until self.db_atribute_set_dump_mode is called. this helps to quickly perform operations on containers db attributes
+
+DbAtribute.db_atribute_set_dump_mode set dump_mode to True and call dump
+
+DbAtribute.db_atribute_set_undump_mode set dump_mode to False
+
+```python
+from dataclasses import dataclass, field
+
+from db_atribute import db_work
+from db_atribute import dbDecorator, DbAtribute, db_field, connector
+
+from _db_info import host, user, password, database
+
+connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
+db_work_obj = db_work.Db_work(connect_obj)
+
+@dbDecorator(_db_Atribute__dbworkobj=db_work_obj)
+@dataclass
+class User(DbAtribute):
+    list_of_books: list = db_field(default_factory=lambda:[])
+
+def update_list_of_books_for_this_user(id_user):
+    user = User(id_user)
+    user.db_atribute_set_undump_mode()
+    for i in range(10**5):
+        user.list_of_books.append(i)
+    user.db_atribute_set_dump_mode()
+
+update_list_of_books_for_this_user(1)
+```
+
+if you need dump attributes to db with undump_mode, you can use DbAtribute.db_atribute_dump
+
+```python
+from dataclasses import dataclass, field
+import time
+
+from db_atribute import db_work
+from db_atribute import dbDecorator, DbAtribute, db_field, connector
+
+from _db_info import host, user, password, database
+
+connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
+db_work_obj = db_work.Db_work(connect_obj)
+
+@dbDecorator(_db_Atribute__dbworkobj=db_work_obj)
+@dataclass
+class User(DbAtribute):
+    list_of_books: list = db_field(default_factory=lambda:[])
+
+def update_list_of_books_for_this_user(id_user):
+    user = User(id_user)
+    user.db_atribute_set_undump_mode()
+    for i in range(10**4):
+        user.list_of_books.append(i)
+    user.db_atribute_dump() #dump the list_of_books to db
+    time.sleep(60)
+    for i in range(10**4):
+        user.list_of_books.append(i)
+    user.db_atribute_set_dump_mode()
+
+update_list_of_books_for_this_user(1)
 ```
 
 # Data base
