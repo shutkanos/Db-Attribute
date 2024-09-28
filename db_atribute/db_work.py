@@ -45,15 +45,7 @@ def convert_mysql_value_to_atribute_value(mysql_value, mysql_type, _obj_dbatribu
         return {'status_code': 200, 'data': db_class.DbContainer.loads(mysql_value, _obj_dbatribute=_obj_dbatribute, _name_atribute=atribute_name)}
     return {'status_code': 300}
 
-"""
-def conver_to_sql_string(string):
-    replace_characters = {'\0': '\\0', '\'': '\\\'', '\"': '\\"', '\b': '\\b', '\n': '\\n', '\r': '\\r', '\t': '\\t', '\x1a':'\\x1a', '\\': '\\\\'}
-    for i in replace_characters:
-        string.replace(i, replace_characters[i])
-    return f'{string}'
-"""
-
-def sql_decorator(standart_return=None):
+def sql_decorator(func_d=None, /, standart_return=None):
     def active_decorator(func):
         @functools.wraps(func)
         def method_wrapper(self, *args, **kwargs):
@@ -64,7 +56,9 @@ def sql_decorator(standart_return=None):
             res = func(self, *args, **kwargs)
             return res
         return method_wrapper
-    return active_decorator
+    if func_d is None:
+        return active_decorator
+    return active_decorator(func_d)
 
 def get_table_name(class_name:str, atribute_name:str):
     return f'cls_{class_name}_atr_{atribute_name}'.lower()
@@ -79,7 +73,7 @@ class Db_work:
         self.connobj.cur.execute(f"""show tables""")
         return {'status_code': 200, 'data': [i[0] for i in self.connobj.cur.fetchall()]}
 
-    @sql_decorator()
+    @sql_decorator
     def create_table(self, table_name: str, atributes: list[tuple[str, str]]):
         if table_name.lower() in self.active_tables:
             return {'status_code': 301}
@@ -88,7 +82,7 @@ class Db_work:
         self.active_tables = self.list_tables()['data']
         return {'status_code': 200}
 
-    @sql_decorator()
+    @sql_decorator
     def deleate_table(self, table_name: str, ignore_302:bool=False):
         if table_name.lower() not in self.active_tables:
             if ignore_302:
@@ -99,7 +93,7 @@ class Db_work:
         self.active_tables = self.list_tables()['data']
         return {'status_code': 200}
 
-    @sql_decorator()
+    @sql_decorator
     def get_type_data_table(self, table_name: str):
         #print(table_name)
         if table_name not in self.active_tables:
@@ -108,14 +102,14 @@ class Db_work:
         #print(f"""SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'db_atribute' AND TABLE_NAME = '{table_name}';""")
         return {'status_code': 200, 'data': self.connobj.cur.fetchall()[-1][0]}
 
-    @sql_decorator()
+    @sql_decorator
     def get_values_by_id(self, table_name:str, ID:int):
         if table_name not in self.active_tables:
             return {'status_code': 302}
         self.connobj.cur.execute(f"""select * from {table_name} where id={ID}""")
         return {'status_code': 200, 'data': [i[-1] for i in self.connobj.cur.fetchall()]}
 
-    @sql_decorator()
+    @sql_decorator
     def del_value_by_id(self, table_name:str, ID:int, ignore_302:bool=False):
         if table_name not in self.active_tables:
             if ignore_302:
@@ -124,7 +118,6 @@ class Db_work:
         self.connobj.cur.execute(f"""delete from {table_name} where id={ID}""")
         return {'status_code': 200}
 
-    @sql_decorator()
     def add_value_by_id(self, table_name:str, ID:int, value, update_value_if_exists:bool=True, ignore_302:bool=False):
         temp_data = self.get_values_by_id(table_name=table_name, ID=ID)
         if temp_data['status_code'] == 302 and ignore_302: return {'status_code': 200}
@@ -137,7 +130,6 @@ class Db_work:
         self.connobj.conn.commit()
         return {'status_code': 200}
 
-    @sql_decorator()
     def update_value_by_id(self, table_name:str, ID:int, value, ignore_302:bool=False):
         temp_data = self.get_values_by_id(table_name=table_name, ID=ID)
         if temp_data['status_code'] == 302 and ignore_302: return {'status_code': 200}
@@ -165,7 +157,6 @@ class Db_work:
         if temp_data['status_code'] != 200: return temp_data
         return {'status_code': 200}
 
-    @sql_decorator()
     def add_atribute_value(self, class_name: str, atribute_name: str, ID:int, data, update_value_if_exists:bool=True, ignore_302:bool=False):
         table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)
         temp_data = convert_atribute_value_to_mysql_value(data)
@@ -176,7 +167,6 @@ class Db_work:
         if temp_data['status_code'] != 200: return temp_data
         return {'status_code': 200}
 
-    @sql_decorator()
     def get_atribute_value(self, class_name: str, atribute_name: str, ID:int, _obj_dbatribute=None):
         table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)
         temp_data = self.get_values_by_id(table_name=table_name, ID=ID)
