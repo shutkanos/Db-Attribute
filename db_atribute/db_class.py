@@ -21,7 +21,6 @@ class DbContainer:
         return super().__new__(cls)
 
     def init(self, iterable=(), _obj_dbatribute=None, _copy_data=True, _name_atribute=None, _first_container=None, set_data=True, *args, **kwargs):
-        #print(iterable, type(_obj_dbatribute), type(_name_atribute))
         if _obj_dbatribute:
             self._obj_dbatribute = _obj_dbatribute
         if _name_atribute:
@@ -60,7 +59,8 @@ class DbContainer:
             self.update_data()
 
     def update_data(self):
-        self._first_container._obj_dbatribute._db_atribute_container_update(self._first_container._name_atribute, self._first_container)
+        if self._first_container and self._first_container._obj_dbatribute:
+            self._first_container._obj_dbatribute._db_atribute_container_update(self._first_container._name_atribute, self._first_container)
 
     def dumps(self):
         data = [convert_atr_value_to_json_value(i) for i in self.data]
@@ -84,7 +84,7 @@ class DbContainer:
 class DbDict(DbContainer, collections.UserDict):
     _standart_class=dict
 
-    def __init__(self, iterable=(), _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
+    def __init__(self, iterable=(), _use_db=False, _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
         temp_data = super().init(iterable=iterable, _obj_dbatribute=_obj_dbatribute, _copy_data=_copy_data, _name_atribute=_name_atribute, _first_container=_first_container)
         if temp_data: return
         if _cheak_data:
@@ -151,7 +151,7 @@ class DbDict(DbContainer, collections.UserDict):
 class DbList(DbContainer, collections.UserList):
     _standart_class=list
 
-    def __init__(self, iterable=(), _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
+    def __init__(self, iterable=(), _use_db=False, _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
         temp_data = super().init(iterable=iterable, _obj_dbatribute=_obj_dbatribute, _copy_data=_copy_data, _name_atribute=_name_atribute, _first_container=_first_container)
         if temp_data: return
         if _cheak_data:
@@ -234,7 +234,7 @@ class DbList(DbContainer, collections.UserList):
 class DbSet(DbContainer, UserSet.UserSet):
     _standart_class=set
 
-    def __init__(self, iterable=(), _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
+    def __init__(self, iterable=(), _use_db=False, _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
         super().init(iterable=iterable, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, set_data=False)
         if isinstance(iterable, self.__class__):
             self.__dict__['data'] = copy.deepcopy(iterable.data)
