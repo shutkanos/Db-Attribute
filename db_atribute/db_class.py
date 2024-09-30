@@ -60,7 +60,8 @@ class DbContainer:
             self.update_data()
 
     def update_data(self):
-        self._first_container._obj_dbatribute._db_atribute_container_update(self._first_container._name_atribute, self._first_container)
+        if self._first_container and self._first_container._obj_dbatribute:
+            self._first_container._obj_dbatribute._db_atribute_container_update(self._first_container._name_atribute, self._first_container)
 
     def dumps(self):
         data = [convert_atr_value_to_json_value(i) for i in self.data]
@@ -78,13 +79,13 @@ class DbContainer:
         temp_data = json.loads(s)
         if not(isinstance(temp_data, dict) and 'd' in temp_data and 't' in temp_data):
             return {'status_code': 400}
-        return cheaker.name_to_db_class[temp_data['t']].loads(s, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+        return cheaker.db_class_name_to_db_class[temp_data['t']].loads(s, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
 
 
 class DbDict(DbContainer, collections.UserDict):
     _standart_class=dict
 
-    def __init__(self, iterable=(), _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
+    def __init__(self, iterable=(), _use_db = False, _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
         temp_data = super().init(iterable=iterable, _obj_dbatribute=_obj_dbatribute, _copy_data=_copy_data, _name_atribute=_name_atribute, _first_container=_first_container)
         if temp_data: return
         if _cheak_data:
@@ -133,12 +134,12 @@ class DbDict(DbContainer, collections.UserDict):
         data_key = {convert_atr_key_to_json_key(key): key.__class__.__name__ for key in self.data if key.__class__ in [tuple, int, bool]}
         return json.dumps({'t': self.__class__.__name__, 'dt': data_value, 'dk': data_key, 'd': data})
 
-    @staticmethod
-    def loads(s: str, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+    @classmethod
+    def loads(cls, s: str, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
         temp_data = json.loads(s)
-        if not(isinstance(temp_data, dict) and 'd' in temp_data and 't' in temp_data and 'dt' in temp_data and 'dk' in temp_data and temp_data['t'] == 'DbDict'):
+        if not(isinstance(temp_data, dict) and 'd' in temp_data and 't' in temp_data and 'dt' in temp_data and 'dk' in temp_data and temp_data['t'] == cls.__name__):
             return {'status_code': 400}
-        obj = DbDict.__new__(cls=DbDict, _use_db=True)
+        obj = cls.__new__(cls=cls, _use_db=True)
         if _first_container is None:
             _first_container = obj
         data = {convert_json_key_to_atr_key(key, temp_data['dk'][key] if key in temp_data['dk'] else None)
@@ -151,7 +152,7 @@ class DbDict(DbContainer, collections.UserDict):
 class DbList(DbContainer, collections.UserList):
     _standart_class=list
 
-    def __init__(self, iterable=(), _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
+    def __init__(self, iterable=(), _use_db = False, _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
         temp_data = super().init(iterable=iterable, _obj_dbatribute=_obj_dbatribute, _copy_data=_copy_data, _name_atribute=_name_atribute, _first_container=_first_container)
         if temp_data: return
         if _cheak_data:
@@ -218,12 +219,12 @@ class DbList(DbContainer, collections.UserList):
         self.update_data()
         return data
 
-    @staticmethod
-    def loads(s: str, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+    @classmethod
+    def loads(cls, s: str, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
         temp_data = json.loads(s)
-        if not(isinstance(temp_data, dict) and 'd' in temp_data and 't' in temp_data and 'dt' in temp_data and temp_data['t'] == 'DbList'):
+        if not(isinstance(temp_data, dict) and 'd' in temp_data and 't' in temp_data and 'dt' in temp_data and temp_data['t'] == cls.__name__):
             return {'status_code': 400}
-        obj = DbList.__new__(cls=DbList, _use_db=True)
+        obj = cls.__new__(cls=cls, _use_db=True)
         if _first_container is None:
             _first_container = obj
         data = [conver_json_value_to_atr_value(value, temp_data['dt'][str(key)] if str(key) in temp_data['dt'] else None, _first_container=_first_container)
@@ -234,7 +235,7 @@ class DbList(DbContainer, collections.UserList):
 class DbSet(DbContainer, UserSet.UserSet):
     _standart_class=set
 
-    def __init__(self, iterable=(), _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
+    def __init__(self, iterable=(), _use_db = False, _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
         super().init(iterable=iterable, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, set_data=False)
         if isinstance(iterable, self.__class__):
             self.__dict__['data'] = copy.deepcopy(iterable.data)
@@ -271,40 +272,50 @@ class DbSet(DbContainer, UserSet.UserSet):
         self.update_data()
         return data
 
-    @staticmethod
-    def loads(s: str, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+    @classmethod
+    def loads(cls, s: str, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
         temp_data = json.loads(s)
-        if not(isinstance(temp_data, dict) and 'd' in temp_data and 't' in temp_data and 'dt' in temp_data and temp_data['t'] == 'DbSet'):
+        if not(isinstance(temp_data, dict) and 'd' in temp_data and 't' in temp_data and 'dt' in temp_data and temp_data['t'] == cls.__name__):
             return {'status_code': 400}
-        obj = DbSet.__new__(cls=DbSet, _use_db=True)
+        data = temp_data
+        obj = cls.__new__(cls=cls, _use_db=True)
         if _first_container is None:
             _first_container = obj
-        data = {conver_json_value_to_atr_value(value, temp_data['dt'][str(key)] if str(key) in temp_data['dt'] else None, _first_container=_first_container)
-                for key, value in enumerate(temp_data['d'])}
+        data = {conver_json_value_to_atr_value(value, data['dt'][str(key)] if str(key) in data['dt'] else None, _first_container=_first_container)
+                for key, value in enumerate(data['d'])}
         obj.__init__(data, _use_db=True, _cheak_data=False, _copy_data=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
 
 class Cheaker:
-    def __init__(self, users_db_classes:dict = None):
+    """
+    cheak, if this class is db_class. Convert obj if his class is db_class. And other.
+
+    db_class_name_to_db_class: {'DbList': DbList, 'DbSet': DbSet, 'DbDict': DbDict} | *users db classes*
+    class_name_to_db_class = {'list': DbList, 'dict': DbDict, 'set': DbSet} | *users db classes*
+    class_to_db_class = {list: DbList, dict: DbDict, set: DbSet} | *users db classes*
+    """
+    def __init__(self, _users_db_classes:dict = None):
         """
-        :param users_db_classes: example: {datetime.datetime: DbDatetime}
-        :type users_db_classes: dict
+        :param _users_db_classes: example: {datetime.datetime: DbDatetime}
+        :type _users_db_classes: dict
         """
-        self.users_db_classes = users_db_classes
-        if not users_db_classes:
-            self.users_db_classes = dict()
-        self.name_to_db_class = {'DbList': DbList, 'DbSet': DbSet, 'DbDict': DbDict} | {self.users_db_classes[i.__name__] : i for i in self.users_db_classes}
+        self._users_db_classes = _users_db_classes
+        if not _users_db_classes:
+            self._users_db_classes = dict()
+        self.db_class_name_to_db_class = {'DbList': DbList, 'DbSet': DbSet, 'DbDict': DbDict} | {self._users_db_classes[i.__name__] : i for i in self._users_db_classes}
+        self.class_name_to_db_class = {'list': DbList, 'dict': DbDict, 'set': DbSet} | {i: self._users_db_classes[i.__name__] for i in self._users_db_classes}
+        self.class_to_db_class = {list: DbList, dict: DbDict, set: DbSet} | self._users_db_classes
 
 
-    def set_users_db_classes(self, users_db_classes: dict):
+    def set_users_db_classes(self, _users_db_classes: dict):
         """
-        :param users_db_classes: example: {datetime.datetime: DbDatetime}
-        :type users_db_classes: dict
+        :param _users_db_classes: example: {datetime.datetime: DbDatetime}
+        :type _users_db_classes: dict
         """
-        self.users_db_classes = users_db_classes
-        if not users_db_classes:
-            self.users_db_classes = dict()
-        self.name_to_db_class = {'DbList': DbList, 'DbSet': DbSet, 'DbDict': DbDict} | {self.users_db_classes[i.__name__] : i for i in self.users_db_classes}
+        self._users_db_classes = _users_db_classes
+        if not _users_db_classes:
+            self._users_db_classes = dict()
+        self.db_class_name_to_db_class = {'DbList': DbList, 'DbSet': DbSet, 'DbDict': DbDict} | {self._users_db_classes[i.__name__] : i for i in self._users_db_classes}
 
 
     def create_db_class(self, *objs, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
@@ -323,20 +334,20 @@ class Cheaker:
             return DbList(obj, _use_db=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         if isinstance(obj, set):
             return DbSet(obj, _use_db=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
-        for from_class, to_class in self.users_db_classes.items():
+        for from_class, to_class in self._users_db_classes.items():
             if isinstance(obj, from_class):
                 return to_class(obj, _use_db=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
 
     def this_container_class(self, obj, this_is_cls=False):
         if this_is_cls:
-            return obj in [dict, list, set] or obj in self.users_db_classes
-        return obj.__class__ in [dict, list, set] or obj.__class__ in self.users_db_classes
+            return obj in [dict, list, set] or obj in self._users_db_classes
+        return obj.__class__ in [dict, list, set] or obj.__class__ in self._users_db_classes
 
     def this_db_atribute_container_class(self, obj, this_is_cls=False):
         if this_is_cls:
-            return obj in [DbDict, DbList, DbSet] or obj in self.users_db_classes.values()
-        return obj.__class__ in [DbDict, DbList, DbSet] or obj.__class__ in self.users_db_classes.values()
+            return obj in [DbDict, DbList, DbSet] or obj in self._users_db_classes.values()
+        return obj.__class__ in [DbDict, DbList, DbSet] or obj.__class__ in self._users_db_classes.values()
 
 def list_to_dict(obj):
     return {i: obj[i] for i in range(len(obj))}
@@ -351,7 +362,6 @@ def conver_json_value_to_atr_value(value, type_value, _obj_dbatribute=None, _nam
     if type_value == 'tuple':
         return tuple(res)
     return res
-
 
 def convert_atr_key_to_json_key(key):
     """For DbDict"""
@@ -373,6 +383,123 @@ def convert_json_key_to_atr_key(key, type_key):
         return True if res == ' True ' else False
     return res
 
+def LoadDecorator(func=None, /, *, auto_step1=True, auto_step2=True, auto_step3=True, auto_step4=True):
+    """
+    *for args in steps: other args is _obj_dbatribute, _name_atribute, _first_container*
+
+    use yield for loads
+
+    example for realisation step2:
+
+    @classmethod
+    @LoadDecorator(auto_step2=False)
+    def func(cls, *args, **kwargs):
+        data, _obj_dbatribute, _name_atribute, _first_container = yield
+        self = cls.__new__(cls=cls, _use_db=True)
+        yield self, data, _obj_dbatribute, _name_atribute, _first_container
+
+    example for realisation step1+step3:
+
+    @classmethod
+    @LoadDecorator(auto_step2=False)
+    def func(cls, *args, **kwargs):
+        #step1
+        s, _obj_dbatribute, _name_atribute, _first_container = yield
+        data = json.loads(s)
+        self, data, _obj_dbatribute, _name_atribute, _first_container = yield data, _obj_dbatribute, _name_atribute, _first_container
+        #step 3
+        new_data = [conver_json_value_to_atr_value(value, type_value=data['dt'][str(key)] if str(key) in data['dt'] else None, _first_container=_first_container)
+                    for key, value in enumerate(data['d'])]
+        yield new_data, _obj_dbatribute, _name_atribute, _first_container
+
+    example for realisation step1+step2:
+
+    @classmethod
+    @LoadDecorator(auto_step2=False)
+    def func(cls, *args, **kwargs):
+        #step1
+        s, _obj_dbatribute, _name_atribute, _first_container = yield
+        data = json.loads(s)
+        yield data, _obj_dbatribute, _name_atribute, _first_container
+        # or data, _obj_dbatribute, _name_atribute, _first_container = yield data, _obj_dbatribute, _name_atribute, _first_container
+        #step 2
+        self = cls.__new__(cls=cls, _use_db=True)
+        yield self, data, _obj_dbatribute, _name_atribute, _first_container
+
+
+    :param func:
+    :param auto_step1: step, where str convert to json (and cheak: is correct data or not). call for 1st step: (s: str, *other args*) and send back: (data: json, *other args*)
+    :param auto_step2: step, where create obj (no init, only __new__) (and replace _first_container if is None). call for 2nd step: (data: json, *other args*), send back: (self (this obj | cls.__new__), data: json, *other args*)
+    :param auto_step3: step, where load the data. call for 3rd step: (self, data: json, *other args*), send back: (data: Any (list | dict | set | *other*), *other args*)
+    :param auto_step4: step, where call obj.__init__. call for 4th step: (self, data, *other args*), send back: ()
+    :return:
+    """
+
+    def step1(cls, s, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
+        data = json.loads(s)
+        if not(isinstance(data, dict) and 'd' in data and 't' in data and 'dt' in data and data['t'] == cls.__name__):
+            return 400
+        return data, _obj_dbatribute, _name_atribute, _first_container
+
+    def step2(cls, data, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
+        obj = cls.__new__(cls=cls, _use_db=True)
+        if _first_container is None:
+            _first_container = obj
+        return obj, data, _obj_dbatribute, _name_atribute, _first_container
+
+    def step3(cls, self, data, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
+        data = {conver_json_value_to_atr_value(value, data['dt'][str(key)] if str(key) in data['dt'] else None, _first_container=_first_container)
+                for key, value in enumerate(data['d'])}
+        return data, _obj_dbatribute, _name_atribute, _first_container
+
+    def step4(cls, self, data, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
+        self.__init__(data, _use_db=True, _cheak_data=False, _copy_data=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+
+    def wrap(func):
+        def metode_func(cls, s: str, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
+            generator = func(cls, *args, **kwargs)
+            first_run = True
+            if auto_step1:
+                data, _obj_dbatribute, _name_atribute, _first_container = step1(cls, s, _obj_dbatribute, _name_atribute, _first_container)
+            else:
+                if first_run:
+                    next(generator)
+                    first_run = False
+                data, _obj_dbatribute, _name_atribute, _first_container = generator.send(s, _obj_dbatribute, _name_atribute, _first_container)
+
+            if auto_step2:
+                self, data, _obj_dbatribute, _name_atribute, _first_container = step2(cls, data, _obj_dbatribute, _name_atribute, _first_container)
+            else:
+                if first_run:
+                    next(generator)
+                    first_run = False
+                self, data, _obj_dbatribute, _name_atribute, _first_container = generator.send(data, _obj_dbatribute, _name_atribute, _first_container)
+
+            if auto_step3:
+                data, _obj_dbatribute, _name_atribute, _first_container = step3(cls, self, data, _obj_dbatribute, _name_atribute, _first_container)
+            else:
+                if first_run:
+                    next(generator)
+                    first_run = False
+                data, _obj_dbatribute, _name_atribute, _first_container = generator.send(self, data, _obj_dbatribute, _name_atribute, _first_container)
+
+            if auto_step4:
+                step4(cls, self, data, _obj_dbatribute, _name_atribute, _first_container)
+            else:
+                if first_run:
+                    next(generator)
+                generator.send(self, data, _obj_dbatribute, _name_atribute, _first_container)
+            return self
+        return metode_func
+    if func is None:
+        return wrap
+    return wrap(func)
+
+def loads(s: str, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+    temp_data = json.loads(s)
+    if not(isinstance(temp_data, dict) and 'd' in temp_data and 't' in temp_data):
+        return {'status_code': 400}
+    return cheaker.db_class_name_to_db_class[temp_data['t']].loads(s, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
 
 cheaker = Cheaker()
 

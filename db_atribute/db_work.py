@@ -31,17 +31,12 @@ def convert_atribute_value_to_mysql_value(atribute_value):
         return {'status_code': 300}
     return {'status_code': 300}
 
-def convert_mysql_value_to_atribute_value(mysql_value, mysql_type, _obj_dbatribute=None, atribute_name=None):
-    """for get mysql_type use Db_work.get_type_data_table"""
-    temp_data = convert_mysql_type_to_atribute_type(mysql_type)
-    if temp_data['status_code'] != 200:
-        return temp_data
-    atribute_type = temp_data['data']
+def convert_mysql_value_to_atribute_value(mysql_value, atribute_type, _obj_dbatribute=None, atribute_name=None):
     if atribute_type in (int, float, str):
         return {'status_code': 200, 'data': mysql_value}
     if atribute_type == bool:
         return {'status_code': 200, 'data': True if mysql_value else False}
-    if atribute_type == db_class.DbContainer:
+    if issubclass(atribute_type, db_class.DbContainer):
         return {'status_code': 200, 'data': db_class.DbContainer.loads(mysql_value, _obj_dbatribute=_obj_dbatribute, _name_atribute=atribute_name)}
     return {'status_code': 300}
 
@@ -167,16 +162,17 @@ class Db_work:
         if temp_data['status_code'] != 200: return temp_data
         return {'status_code': 200}
 
-    def get_atribute_value(self, class_name: str, atribute_name: str, ID:int, _obj_dbatribute=None):
+    def get_atribute_value(self, class_name: str, atribute_name: str, ID:int, atribute_type=None, _obj_dbatribute=None):
         table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)
         temp_data = self.get_values_by_id(table_name=table_name, ID=ID)
         if temp_data['status_code'] != 200: return temp_data
         if len(temp_data['data']) == 0: return {'status_code': 304}
         value = temp_data['data'][0]
-        temp_data = self.get_type_data_table(table_name)
-        if temp_data['status_code'] != 200: return temp_data
-        type_mysql_value = temp_data['data']
-        return convert_mysql_value_to_atribute_value(value, type_mysql_value, _obj_dbatribute=_obj_dbatribute, atribute_name=atribute_name)
+        if atribute_type is None:
+            atribute_type = object.__getattribute__(_obj_dbatribute, '__annotations__')[atribute_name]
+        if atribute_type.__name__ in db_class.cheaker.class_name_to_db_class:
+            atribute_type = db_class.cheaker.class_name_to_db_class[atribute_type.__name__]
+        return convert_mysql_value_to_atribute_value(value, atribute_type=atribute_type, _obj_dbatribute=_obj_dbatribute, atribute_name=atribute_name)
 
 if __name__ == "__main__":
     pass
