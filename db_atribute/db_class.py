@@ -1,6 +1,6 @@
 import collections, json, copy, ast
 
-import db_atribute.UserSet as UserSet
+import db_atribute.UserCollections as UserCollections
 
 def LoadDecorator(func=None, /, *, auto_step1=True, auto_step2=True, auto_step3=True, auto_step4=True, step1=None, step2=None, step3=None, step4=None):
     """
@@ -307,7 +307,6 @@ class DbDict(DbContainer, collections.UserDict):
                 for key, value in data['d'].items()}
         yield data, _obj_dbatribute, _name_atribute, _first_container
 
-
 class DbList(DbContainer, collections.UserList):
     _standart_class=list
 
@@ -383,7 +382,7 @@ class DbList(DbContainer, collections.UserList):
     def loads(cls, *args, **kwargs):
         pass
 
-class DbSet(DbContainer, UserSet.UserSet):
+class DbSet(DbContainer, UserCollections.UserSet):
     _standart_class=set
 
     def __init__(self, iterable=(), _use_db = False, _obj_dbatribute=None, _cheak_data=True, _copy_data=True, _name_atribute=None, _first_container=None, *args, **kwargs):
@@ -430,6 +429,8 @@ class DbSet(DbContainer, UserSet.UserSet):
         new_data = {conver_json_value_to_atr_value(value, type_value=data['dt'][str(key)] if str(key) in data['dt'] else None, _first_container=_first_container)
                     for key, value in enumerate(data['d'])}
         yield new_data, _obj_dbatribute, _name_atribute, _first_container
+
+class DbTuple: pass
 
 class Cheaker:
     """
@@ -640,7 +641,6 @@ if __name__ == "__main__":
         print(c, type(c))
     print(9)
     A = DbDict({0: [1, 4, {1}], 1: {2}, True: 0}, _use_db = True)
-    print(A)
 
 
 
