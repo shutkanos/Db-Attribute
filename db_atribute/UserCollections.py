@@ -328,9 +328,6 @@ class UserDeque:
 
     __hash__ = None
 
-A = deque()
-#A.index(__x=1, __start=2, __stop=3)
-
 def test_UserTyple():
     print(1)
     otuple = (1, 2, 3, 3)

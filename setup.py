@@ -26,14 +26,14 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
     ],
 
     # What does your project relate to?
-    keywords='db datebase atribute dbatribute db_atribute databaseatribute',
+    keywords='db datebase atribute dbatribute db_atribute databaseatribute auto_atribute',
     packages=find_packages(),
 
     # Alternatively, if you want to distribute just a my_module.py, uncomment

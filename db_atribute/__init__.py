@@ -5,6 +5,8 @@ from dataclasses import MISSING
 import db_atribute.db_class as db_class
 import db_atribute.db_work as db_work
 
+__all__ = ['dbDecorator', 'db_field', 'DbAtribute']
+
 def dbDecorator(cls=None, /, kw_only=False, _db_Atribute__dbworkobj=None):
     def wrap(cls):
         if (('_db_Atribute__dbworkobj' not in cls.__dict__) or cls._db_Atribute__dbworkobj is None) and _db_Atribute__dbworkobj is None:
