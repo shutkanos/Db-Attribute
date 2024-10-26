@@ -8,13 +8,13 @@ def convert_atribute_type_to_mysql_type(atribute_type, len_varchar=50):
         return {'status_code': 200, 'data': f'varchar({len_varchar})'}
     if atribute_type in (int, float, bool):
         return {'status_code': 200, 'data': atribute_type.__name__.upper()}
-    if db_class.cheaker.this_db_atribute_container_class(atribute_type, this_is_cls=True):
+    if db_class.cheaker.this_db_atribute_support_class(atribute_type, this_is_cls=True):
         return {'status_code': 200, 'data': 'json'}
     return {'status_code': 300}
 
 def convert_mysql_type_to_atribute_type(mysql_type):
     """for get mysql_type use Db_work.get_type_data_table"""
-    convert_dict = {'varchar': str, 'int': int, 'float': float, 'tinyint': bool, 'json': db_class.DbContainer}
+    convert_dict = {'varchar': str, 'int': int, 'float': float, 'tinyint': bool, 'json': db_class.DbClass}
     if mysql_type in convert_dict:
         return {'status_code': 200, 'data': convert_dict[mysql_type]}
     return {'status_code': 300}
@@ -25,10 +25,10 @@ def convert_atribute_value_to_mysql_value(atribute_value):
         return {'status_code': 200, 'data': f'{atribute_value}'}
     if atribute_type == str:
         return {'status_code': 200, 'data': json.dumps(atribute_value)}
-    if db_class.cheaker.this_db_atribute_container_class(atribute_type, this_is_cls=True):
+    if db_class.cheaker.this_db_atribute_support_class(atribute_type, this_is_cls=True):
         return {'status_code': 200, 'data': json.dumps(atribute_value.dumps())}
-    if db_class.cheaker.this_container_class(atribute_type, this_is_cls=True):
-        return {'status_code': 300}
+    #if db_class.cheaker.this_container_class(atribute_type, this_is_cls=True):
+    #    return {'status_code': 300}
     return {'status_code': 300}
 
 def convert_mysql_value_to_atribute_value(mysql_value, atribute_type, _obj_dbatribute=None, atribute_name=None):
@@ -36,8 +36,8 @@ def convert_mysql_value_to_atribute_value(mysql_value, atribute_type, _obj_dbatr
         return {'status_code': 200, 'data': mysql_value}
     if atribute_type == bool:
         return {'status_code': 200, 'data': True if mysql_value else False}
-    if issubclass(atribute_type, db_class.DbContainer):
-        return {'status_code': 200, 'data': db_class.DbContainer.loads(mysql_value, _obj_dbatribute=_obj_dbatribute, _name_atribute=atribute_name)}
+    if issubclass(atribute_type, db_class.DbClass):
+        return {'status_code': 200, 'data': db_class.DbClass.loads(mysql_value, _obj_dbatribute=_obj_dbatribute, _name_atribute=atribute_name)}
     return {'status_code': 300}
 
 def sql_decorator(func_d=None, /, standart_return=None):

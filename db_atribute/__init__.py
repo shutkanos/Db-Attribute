@@ -5,7 +5,8 @@ from dataclasses import MISSING
 import db_atribute.db_class as db_class
 import db_atribute.db_work as db_work
 
-__all__ = ['dbDecorator', 'db_field', 'DbAtribute']
+__all__ = ['dbDecorator', 'db_field', 'DbAtribute', 'db_work', 'db_class', 'connector']
+__version__ = '1.1'
 
 def dbDecorator(cls=None, /, kw_only=False, _db_Atribute__dbworkobj=None):
     def wrap(cls):
@@ -89,7 +90,7 @@ class DbAtribute:
     def _db_atribute_dump_attr_to_db(self, key, value):
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
-        obj = db_class.cheaker.create_one_db_class(value, _obj_dbatribute=self)
+        obj = db_class.cheaker.create_db_class(value, _obj_dbatribute=self)
         if db_work.get_table_name(cls.__name__, key) not in cls._db_Atribute__dbworkobj.active_tables:
             cls._db_Atribute__dbworkobj.create_atribute_table(class_name=cls.__name__, atribute_name=key, atribute_type=type(obj))
         cls._db_Atribute__dbworkobj.add_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], data=obj)
@@ -158,6 +159,3 @@ class DbAtribute:
         self_dict['_db_Atribute__dump_mode'] = True
         for db_atr in object.__getattribute__(self, '__class__').__dict__['_db_Atribute__list_db_atributes']:
             del self_dict[db_atr]
-
-
-
