@@ -45,6 +45,7 @@ def dbDecorator(cls=None, /, kw_only=False, _db_Atribute__dbworkobj=None):
                     temp_data.add(i)
             db_args_not_set -= temp_data
             kwargs |= {i: NotSet for i in db_args_not_set}
+            self._db_Atribute__dump_mode = True
             return cls.__old_init__(self, *args, **kwargs)
         cls.__old_init__ = cls.__init__
         cls.__init__ = new_init
@@ -68,7 +69,7 @@ class DbField(dataclasses.Field):
 @dataclasses.dataclass
 class DbAtribute:
     id: int
-    _db_Atribute__dump_mode: bool = True
+    _db_Atribute__dump_mode: bool = dataclasses.field(default=True, repr=False, init=False)
     _db_Atribute__list_db_atributes: ClassVar[list] = []
     _db_Atribute__dbworkobj: ClassVar[db_work.Db_work] = None
 
@@ -117,6 +118,13 @@ class DbAtribute:
             return
         cls._db_Atribute__dbworkobj.add_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], data=data)
 
+    @classmethod
+    def _db_atribute_found_ids_by_atribute(cls, atribute_name:str, atribute_value):
+        tempdata = cls._db_Atribute__dbworkobj.found_ids_by_value(class_name=cls.__name__, atribute_name=atribute_name, data=atribute_value)
+        if tempdata['status_code'] != 200:
+            return []
+        return tempdata['data']
+
     def db_atribute_dump(self):
         """
         use it func, if you need dump the data to db, with undump_mode (_db_Atribute__dump_mode = False)
@@ -159,3 +167,20 @@ class DbAtribute:
         self_dict['_db_Atribute__dump_mode'] = True
         for db_atr in object.__getattribute__(self, '__class__').__dict__['_db_Atribute__list_db_atributes']:
             del self_dict[db_atr]
+
+    @classmethod
+    def db_atribute_found_ids(cls, **kwargs):
+        """
+        found ids objs with this values of atributes, ex:
+        objs: User(id=1, name='Bob', age=3), User(id=2, name='Bob', age=2), User(id=3, name='Anna', age=2)
+        User.db_atribute_found_ids_by_atributes(name='Bob') -> {1, 2}
+        User.db_atribute_found_ids_by_atributes(age=2) -> {2, 3}
+        User.db_atribute_found_ids_by_atributes(name='Bob', age=2) -> {2}
+        :param kwargs: names and values of atributes (see doc.)
+        :return: set of ids
+        """
+        if not kwargs: return []
+        res = set(cls._db_atribute_found_ids_by_atribute(atribute_name=(temp:=next(iter(kwargs))), atribute_value=kwargs[temp]))
+        for key in kwargs:
+            res &= set(cls._db_atribute_found_ids_by_atribute(atribute_name=key, atribute_value=kwargs[key]))
+        return res

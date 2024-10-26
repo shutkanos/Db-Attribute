@@ -5,7 +5,7 @@ This module allows you to save attributes of objects not in RAM, but in a databa
 
 # Supported types
 
-This module supported standart types: `int`, `float`, `str`, `bool`, `typle`, `list`, `set`, `dict`.
+This module supported standart types: `int`, `float`, `str`, `bool`, `tuple`, `list`, `set`, `dict`.
 
 if the developer needs other data types, he will need to write an adapter class.
 
@@ -114,45 +114,37 @@ class User(DbAtribute):
 ## Work with obj
 
 for create obj use id and other fields,
-if you need recreated obj, use only id.
 
-if you set new value for db_atribute or you update this atribute, the data of db_atribute automatic dump to database
+### Found obj by id
+if you need recreated obj, you can call your cls with id.
 
 ```python
-from dataclasses import dataclass, field
-from db_atribute import dbDecorator, DbAtribute, db_field
+obj = User(id=3)
+print(obj) #User(id=3, name='name_of_obj3', age='age_of_obj3')
 
-#craete db_work_obj
+obj = User(3)
+print(obj) #User(id=3, name='name_of_obj3', age='age_of_obj3')
 
-@dbDecorator(_db_Atribute__dbworkobj=...)#... is db_work_obj
-@dataclass
-class User(DbAtribute):
-    other_dict_information: dict = field(default_factory=lambda:{})
-    name: str = db_field(default='NotSet')
-    age: int = db_field(default=-1)
-    ban: bool = db_field(default=False)
-    other_int_information: int = 100
-    list_of_books: list = db_field(default_factory=lambda:[])
-    sittings: dict = db_field(default_factory=lambda:{})
+obj = User(3, name='new_name_of_obj3')
+print(obj) #User(id=3, name='new_name_of_obj3', age='age_of_obj3')
 
-user1 = User(1, name='test name', age=-10)
-print(user1) #User(id=1, other_dict_information={}, name='test name', age=-10, ban=False, other_int_information=100, list_of_books=[], sittings={})
+obj = User(id=3, age='new_age_of_obj3')
+print(obj) #User(id=3, name='new_name_of_obj3', age='new_age_of_obj3')
 
-user2 = User(1, name='test name 2', age=-20, ban=True)
-print(user2) #User(id=2, other_dict_information={}, name='test name 2', age=-20, ban=True, other_int_information=100, list_of_books=[], sittings={})
+obj = User(3)
+print(obj) #User(id=3, name='new_name_of_obj3', age='new_age_of_obj3')
+```
 
-del user1, user2
+### Found obj by other atributes
 
-user1 = User(1)
-print(user1) #User(id=1, other_dict_information={}, name='test name', age=-10, ban=False, other_int_information=100, list_of_books=[], sittings={})
+```python
+obj = User(id=1, name='Bob', age=3),
+obj = User(id=2, name='Bob', age=2),
+obj = User(id=3, name='Anna', age=2)
 
-user2 = User(2)
-print(user2) #User(id=2, other_dict_information={}, name='test name 2', age=-20, ban=True, other_int_information=100, list_of_books=[], sittings={})
-
-# none of the db atribute field is stored in RAM (obj.__dict__)
-
-print(user1.__dict__) # {'id': 2, 'other_dict_information': {}, 'other_int_information': 100}
-print(user2.__dict__) # {'id': 2, 'other_dict_information': {}, 'other_int_information': 100}
+print(User.db_atribute_found_ids(name='Bob')) #{1, 2}
+print(User.db_atribute_found_ids(age=2)) #{2, 3}
+print(User.db_atribute_found_ids(name='Bob', age=2)) #{2}
 ```
 
 ### Dump_mode
