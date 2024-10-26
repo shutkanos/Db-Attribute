@@ -6,7 +6,9 @@ import db_atribute.db_class as db_class
 def convert_atribute_type_to_mysql_type(atribute_type, len_varchar=50):
     if atribute_type == str:
         return {'status_code': 200, 'data': f'varchar({len_varchar})'}
-    if atribute_type in (int, float, bool):
+    if atribute_type == int:
+        return {'status_code': 200, 'data': f'bigint'}
+    if atribute_type == float or atribute_type == bool:
         return {'status_code': 200, 'data': atribute_type.__name__.upper()}
     if db_class.cheaker.this_db_atribute_support_class(atribute_type, this_is_cls=True):
         return {'status_code': 200, 'data': 'json'}
@@ -59,8 +61,15 @@ def get_table_name(class_name:str, atribute_name:str):
     return f'cls_{class_name}_atr_{atribute_name}'.lower()
 
 class Db_work:
-    def __init__(self, connobj):
+    def __init__(self, connobj, sittings_for_mysql_types=None):
+        """
+        :param connobj: obj of connector.Connection
+        :param sittings_for_mysql_types: (at this moment not used) example: {str: 'VARCHAR(255)', int: 'BIGINT', bytes: 'BLOB'}
+        """
         self.connobj = connobj
+        self.sittings_for_mysql_types = {str: 'VARCHAR(255)', int: 'BIGINT', bytes: 'BLOB'}
+        if isinstance(sittings_for_mysql_types, dict):
+            self.sittings_for_mysql_types |= sittings_for_mysql_types
         self.active_tables = self.list_tables()['data']
 
     @sql_decorator()
@@ -72,7 +81,7 @@ class Db_work:
     def create_table(self, table_name: str, atributes: list[tuple[str, str]]):
         if table_name.lower() in self.active_tables:
             return {'status_code': 301}
-        self.connobj.cur.execute(f"""CREATE TABLE {table_name} (id INT PRIMARY KEY{', ' if atributes else ''}{', '.join((f'{atribute[0]} {atribute[1]}' for atribute in atributes))})""")
+        self.connobj.cur.execute(f"""CREATE TABLE {table_name} (id BIGINT PRIMARY KEY{', ' if atributes else ''}{', '.join((f'{atribute[0]} {atribute[1]}' for atribute in atributes))})""")
         self.connobj.conn.commit()
         self.active_tables = self.list_tables()['data']
         return {'status_code': 200}
