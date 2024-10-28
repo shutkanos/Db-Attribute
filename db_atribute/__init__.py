@@ -6,7 +6,7 @@ import db_atribute.db_class as db_class
 import db_atribute.db_work as db_work
 
 __all__ = ['dbDecorator', 'db_field', 'DbAtribute', 'db_work', 'db_class', 'connector']
-__version__ = '1.1'
+__version__ = '1.2'
 
 def dbDecorator(cls=None, /, kw_only=False, _db_Atribute__dbworkobj=None):
     def wrap(cls):
