@@ -15,36 +15,67 @@ def dbDecorator(cls=None, /, kw_only=False, _db_Atribute__dbworkobj=None):
         if not _db_Atribute__dbworkobj is None:
             cls._db_Atribute__dbworkobj = _db_Atribute__dbworkobj
         dbworkobj = cls._db_Atribute__dbworkobj
+
+        _Fields = getattr(cls, '__dataclass_fields__')
+
         if '_db_Atribute__list_db_atributes' not in cls.__dict__:
-            cls._db_Atribute__list_db_atributes = []
-        cls._db_Atribute__list_db_atributes = list(set(cls._db_Atribute__list_db_atributes + [i for i in cls.__annotations__ if isinstance(cls.__dataclass_fields__[i], DbField)]))
+            cls._db_Atribute__list_db_atributes = set()
+        cls._db_Atribute__list_db_atributes = set(cls._db_Atribute__list_db_atributes | {i for i in cls.__annotations__ if isinstance(_Fields[i], DbField)})
+
+        print(f'{_Fields=}')
+        #print(f'{_Fields["_db_Atribute__list_db_atributes"]._field_type == dataclasses._FIELD_CLASSVAR}')
+
+        fields_kw_only_init = [i for i in _Fields if _Fields[i].kw_only and _Fields[i].init]
+        fields_kw_only_init_db_atributes = [i for i in _Fields if _Fields[i].kw_only and _Fields[i].init and isinstance(_Fields[i], DbField)]
+        fields_not_kw_only_init = [i for i in _Fields if (not _Fields[i].kw_only) and _Fields[i].init]
+        fields_not_kw_only_init_db_atributes = [i for i in _Fields if isinstance(_Fields[i], DbField) and (not _Fields[i].kw_only) and _Fields[i].init]
+        #init_db_atributes = [i for i in _Fields if isinstance(_Fields[i], DbField) and _Fields[i].init]
 
         set_db_atributes = set(cls._db_Atribute__list_db_atributes)
-        if not kw_only:
-            db_sorted_atrs = list(cls.__annotations__)
-            if 'id' not in db_sorted_atrs:
-                db_sorted_atrs = ['id'] + db_sorted_atrs
-            dict_db_sorted_atrs = {db_sorted_atrs[i]: i for i in range(len(db_sorted_atrs)) if db_sorted_atrs[i] in set_db_atributes}
+        set_fields_kw_only_init_db_atributes = set(fields_kw_only_init_db_atributes)
+        set_fields_not_kw_only_init_db_atributes = set(fields_not_kw_only_init_db_atributes)
 
-        def new_init(self, *args, **kwargs):
-            db_args_not_set = set_db_atributes.copy() - set(kwargs)
-            if not kw_only:
-                temp_data = set()
-                for i in db_args_not_set:
-                    if i in dict_db_sorted_atrs and dict_db_sorted_atrs[i] < len(args):
-                        temp_data.add(i)
-                db_args_not_set -= temp_data
+
+        db_sorted_atrs = fields_not_kw_only_init.copy()#list(cls.__annotations__)
+        if 'id' not in db_sorted_atrs:
+            db_sorted_atrs = ['id'] + db_sorted_atrs
+
+        """        print(f'{fields_kw_only_init=}')
+        print(f'{fields_kw_only_init_db_atributes=}')
+        print(f'{fields_not_kw_only_init=}')
+        print(f'{fields_not_kw_only_init_db_atributes=}')
+        print(f'{set_db_atributes=}')"""
+
+        dict_db_sorted_atrs = {db_sorted_atrs[i]: i for i in range(len(db_sorted_atrs)) if db_sorted_atrs[i] in set_db_atributes}
+
+        #print(f'{dict_db_sorted_atrs=}')
+
+        def new_init(self, *args, _without_init=False, **kwargs):
             ID = -1
             if 'id' in kwargs:
                 ID = kwargs['id']
-            elif len(args):
+            elif args:
                 ID = args[0]
+            if _without_init:
+                object.__setattr__(self, 'id', ID)
+                object.__setattr__(self, '_db_Atribute__dump_mode', True)
+                return
+            db_args_not_set = set_fields_not_kw_only_init_db_atributes.copy() - set(kwargs)
+
             temp_data = set()
             for i in db_args_not_set:
-                if (table_name:= db_work.get_table_name(cls.__name__, i)) not in dbworkobj.active_tables or (not dbworkobj.get_values_by_id(table_name, ID)['data']):
+                if i in dict_db_sorted_atrs and dict_db_sorted_atrs[i] < len(args):
                     temp_data.add(i)
             db_args_not_set -= temp_data
+
+            #temp_data = set()
+            #for i in db_args_not_set:
+            #    if (table_name := db_work.get_table_name(cls.__name__, i)) not in dbworkobj.active_tables or (not dbworkobj.get_values_by_id(table_name, ID)['data']):
+            #        temp_data.add(i)
+            #db_args_not_set -= temp_data
+
             kwargs |= {i: NotSet for i in db_args_not_set}
+            kwargs |= {i: NotSet for i in set_fields_kw_only_init_db_atributes - set(kwargs)}
             self._db_Atribute__dump_mode = True
             return cls.__old_init__(self, *args, **kwargs)
         cls.__old_init__ = cls.__init__
@@ -65,7 +96,6 @@ class NotSet:
 class DbField(dataclasses.Field):
     pass
 
-
 @dataclasses.dataclass
 class DbAtribute:
     id: int
@@ -79,6 +109,13 @@ class DbAtribute:
     def __getattribute__(self, item):
         return object.__getattribute__(self, '_db_atribute_get_attr')(item)
 
+    @classmethod
+    def _db_atribute_get_default_value(cls, fieldname):
+        Field = getattr(cls, '__dataclass_fields__').get(fieldname, NotSet)
+        if Field is NotSet or (Field.default is MISSING and Field.default_factory is MISSING): return NotSet
+        if Field.default is not MISSING: return Field.default
+        return Field.default_factory()
+
     def _db_atribute_set_attr(self, key, value):
         if value is NotSet:
             return
@@ -88,19 +125,24 @@ class DbAtribute:
             return object.__setattr__(self, key, value)
         self._db_atribute_dump_attr_to_db(key, value)
 
-    def _db_atribute_dump_attr_to_db(self, key, value):
+    def _db_atribute_dump_attr_to_db(self, key, value, cheak_exists_value=True):
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
         obj = db_class.cheaker.create_db_class(value, _obj_dbatribute=self)
         if db_work.get_table_name(cls.__name__, key) not in cls._db_Atribute__dbworkobj.active_tables:
             cls._db_Atribute__dbworkobj.create_atribute_table(class_name=cls.__name__, atribute_name=key, atribute_type=type(obj))
-        cls._db_Atribute__dbworkobj.add_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], data=obj)
+            cheak_exists_value = False
+        cls._db_Atribute__dbworkobj.add_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], data=obj, cheak_exists_value=cheak_exists_value)
 
     def _db_atribute_get_attr(self, key):
         cls = object.__getattribute__(self, '__class__')
         if (key not in cls.__dict__['_db_Atribute__list_db_atributes']) or ('_db_Atribute__dump_mode' not in (self_dict := object.__getattribute__(self, '__dict__'))) or (not self_dict['_db_Atribute__dump_mode']):
             return object.__getattribute__(self, key)
         temp_data = cls._db_Atribute__dbworkobj.get_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], _obj_dbatribute=self)
+        if temp_data['status_code'] == 304:
+            value = cls._db_atribute_get_default_value(key)
+            object.__getattribute__(self, '_db_atribute_dump_attr_to_db')(key, value, cheak_exists_value=False)
+            return value
         if temp_data['status_code'] != 200:
             return None
         return temp_data['data']

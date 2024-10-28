@@ -75,7 +75,7 @@ class Db_work:
     @sql_decorator()
     def list_tables(self):
         self.connobj.cur.execute(f"""show tables""")
-        return {'status_code': 200, 'data': [i[0] for i in self.connobj.cur.fetchall()]}
+        return {'status_code': 200, 'data': {i[0] for i in self.connobj.cur.fetchall()}}
 
     @sql_decorator
     def create_table(self, table_name: str, atributes: list[tuple[str, str]]):
@@ -131,14 +131,15 @@ class Db_work:
         self.connobj.cur.execute(f"""delete from {table_name} where id={ID}""")
         return {'status_code': 200}
 
-    def add_value_by_id(self, table_name:str, ID:int, value, update_value_if_exists:bool=True, ignore_302:bool=False):
-        temp_data = self.get_values_by_id(table_name=table_name, ID=ID)
-        if temp_data['status_code'] == 302 and ignore_302: return {'status_code': 200}
-        if temp_data['status_code'] != 200: return temp_data
-        if temp_data['data']:
-            if update_value_if_exists:
-                return self.update_value_by_id(table_name=table_name, ID=ID, value=value)
-            return {'status_code': 303}
+    def add_value_by_id(self, table_name:str, ID:int, value, update_value_if_exists:bool=True, cheak_exists_value:bool=True, ignore_302:bool=False):
+        if cheak_exists_value:
+            temp_data = self.get_values_by_id(table_name=table_name, ID=ID)
+            if temp_data['status_code'] == 302 and ignore_302: return {'status_code': 200}
+            if temp_data['status_code'] != 200: return temp_data
+            if temp_data['data']:
+                if update_value_if_exists:
+                    return self.update_value_by_id(table_name=table_name, ID=ID, value=value)
+                return {'status_code': 303}
         self.connobj.cur.execute(f"""insert into {table_name} values ({ID}, {value})""")
         self.connobj.conn.commit()
         return {'status_code': 200}
@@ -170,12 +171,12 @@ class Db_work:
         if temp_data['status_code'] != 200: return temp_data
         return {'status_code': 200}
 
-    def add_atribute_value(self, class_name: str, atribute_name: str, ID:int, data, update_value_if_exists:bool=True, ignore_302:bool=False):
+    def add_atribute_value(self, class_name: str, atribute_name: str, ID:int, data, cheak_exists_value:bool=True, update_value_if_exists:bool=True, ignore_302:bool=False):
         temp_data = convert_atribute_value_to_mysql_value(data)
         if temp_data['status_code'] != 200: return temp_data
         value = temp_data['data']
         table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)
-        return self.add_value_by_id(table_name=table_name, ID=ID, value=value, update_value_if_exists=update_value_if_exists, ignore_302=ignore_302)
+        return self.add_value_by_id(table_name=table_name, ID=ID, value=value, cheak_exists_value=cheak_exists_value, update_value_if_exists=update_value_if_exists, ignore_302=ignore_302)
 
     def get_atribute_value(self, class_name: str, atribute_name: str, ID:int, atribute_type=None, _obj_dbatribute=None):
         table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)
@@ -196,3 +197,12 @@ class Db_work:
         table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)
         return self.get_ids_by_value(table_name=table_name, value=value, ignore_302=ignore_302)
 
+
+if __name__ == '__main__':
+    from _db_info import host, user, password, database
+    import connector
+
+    connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
+    db_work_obj = Db_work(connect_obj)
+
+    db_work_obj.add_value_by_id('cls_user_atr_age', 6, 12)

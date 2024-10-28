@@ -21,8 +21,6 @@ for any class with DbAtribute you need
 * create any field for database
 * create `_db_Atribute__list_db_atributes: typing.ClassVar[list]` with database fields names.
 
-### Example 1
-
 with `_db_Atribute__list_db_atributes`
 
 ```python
@@ -31,9 +29,7 @@ from typing import ClassVar
 
 from db_atribute import dbDecorator, DbAtribute, db_work, connector
 
-from _db_info import host, user, password, database
-
-connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
+connect_obj = connector.Connection(host=*mysqlhost*, user=*user*, password=*password*, database=*database name*)
 db_work_obj = db_work.Db_work(connect_obj)
 
 
@@ -50,8 +46,6 @@ class User(DbAtribute):
     _db_Atribute__list_db_atributes: ClassVar[list] = ['name', 'age', 'ban', 'list_of_books', 'sittings']
 ```
 
-### Example 2
-
 without `_db_Atribute__list_db_atributes` (automatic created)
 
 ```python
@@ -59,9 +53,7 @@ from dataclasses import dataclass, field
 
 from db_atribute import dbDecorator, DbAtribute, db_field, db_work, connector
 
-from _db_info import host, user, password, database
-
-connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
+connect_obj = connector.Connection(host=*mysqlhost*, user=*user*, password=*password*, database=*database name*)
 db_work_obj = db_work.Db_work(connect_obj)
 
 @dbDecorator(_db_Atribute__dbworkobj=db_work_obj)
@@ -76,34 +68,19 @@ class User(DbAtribute):
     sittings: dict = db_field(default_factory=lambda:{})
 ```
 
-### Example 3
-
 with `id` (in other cases, id inheritance from DbAtribute.DbAtribute)
 
 ```python
-from dataclasses import dataclass
-from db_atribute import dbDecorator, DbAtribute
-
-#craete db_work_obj
-
-@dbDecorator(_db_Atribute__dbworkobj=...) #... is db_work_obj
+@dbDecorator(_db_Atribute__dbworkobj=*db work obj*)
 @dataclass
 class User(DbAtribute):
     id: int
     #other code
 ```
 
-### Example 4
-
 you can set _db_Atribute_dbworkobj in class
 
 ```python
-from dataclasses import dataclass
-from typing import ClassVar
-from db_atribute import dbDecorator, DbAtribute
-
-#craete db_work_obj
-
 @dbDecorator
 @dataclass
 class User(DbAtribute):
@@ -113,29 +90,42 @@ class User(DbAtribute):
 
 ## Work with obj
 
+### Create new obj / add obj do db
+
 for create obj use id and other fields,
+
+```python
+obj = User(id=3) # other field set to defaults value
+print(obj) # User(id=3, name=*default value*)
+```
+```python
+obj = User(id=3, name='Ben')
+print(obj) # User(id=3, name='Ben')
+```
 
 ### Found obj by id
 if you need recreated obj, you can call your cls with id.
 
 ```python
-obj = User(id=3)
-print(obj) #User(id=3, name='name_of_obj3', age='age_of_obj3')
+obj = User(3, name='Ben', age=10) #insert obj to db
+print(obj) #User(id=3, name='Ben', age=10)
 
 obj = User(3)
-print(obj) #User(id=3, name='name_of_obj3', age='age_of_obj3')
+print(obj) #User(id=3, name='Ben', age=10)
 
-obj = User(3, name='new_name_of_obj3')
-print(obj) #User(id=3, name='new_name_of_obj3', age='age_of_obj3')
+obj = User(3, 'Anna')
+print(obj) #User(id=3, name='Anna', age=10)
 
-obj = User(id=3, age='new_age_of_obj3')
-print(obj) #User(id=3, name='new_name_of_obj3', age='new_age_of_obj3')
+obj = User(id=3, age=15)
+print(obj) #User(id=3, name='Anna', age=15)
 
 obj = User(3)
-print(obj) #User(id=3, name='new_name_of_obj3', age='new_age_of_obj3')
+print(obj) #User(id=3, name='Anna', age=15)
 ```
 
 ### Found obj by other atributes
+
+use cls.db_atribute_found_ids(**atributes) for get all ids with values of this atributes
 
 ```python
 obj = User(id=1, name='Bob', age=3),
@@ -145,6 +135,21 @@ obj = User(id=3, name='Anna', age=2)
 print(User.db_atribute_found_ids(name='Bob')) #{1, 2}
 print(User.db_atribute_found_ids(age=2)) #{2, 3}
 print(User.db_atribute_found_ids(name='Bob', age=2)) #{2}
+```
+
+### Change atribute of obj
+
+```python
+obj = User(id=1, name='Bob', list_of_books=[])
+
+print(obj) #User(id=1, name='Bob', list_of_books=[])
+
+obj.name = 'Anna'
+obj.sittings.append('Any name of book')
+
+print(obj) #User(id=1, name='Anna', list_of_books=['Any name of book'])
+print(obj.sittings[0]) #Any name of book
+print(obj.name) #Anna
 ```
 
 ### Dump_mode
@@ -160,17 +165,7 @@ DbAtribute.db_atribute_set_dump_mode set dump_mode to True and call dump
 DbAtribute.db_atribute_set_undump_mode set dump_mode to False
 
 ```python
-from dataclasses import dataclass, field
-
-from db_atribute import db_work
-from db_atribute import dbDecorator, DbAtribute, db_field, connector
-
-from _db_info import host, user, password, database
-
-connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
-db_work_obj = db_work.Db_work(connect_obj)
-
-@dbDecorator(_db_Atribute__dbworkobj=db_work_obj)
+@dbDecorator(_db_Atribute__dbworkobj=*db work obj*)
 @dataclass
 class User(DbAtribute):
     list_of_books: list = db_field(default_factory=lambda:[])
@@ -188,18 +183,7 @@ update_list_of_books_for_this_user(1)
 if you need dump attributes to db with undump_mode, you can use DbAtribute.db_atribute_dump
 
 ```python
-from dataclasses import dataclass, field
-import time
-
-from db_atribute import db_work
-from db_atribute import dbDecorator, DbAtribute, db_field, connector
-
-from _db_info import host, user, password, database
-
-connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
-db_work_obj = db_work.Db_work(connect_obj)
-
-@dbDecorator(_db_Atribute__dbworkobj=db_work_obj)
+@dbDecorator(_db_Atribute__dbworkobj=*db work obj*)
 @dataclass
 class User(DbAtribute):
     list_of_books: list = db_field(default_factory=lambda:[])
