@@ -1,7 +1,7 @@
 DbAtribute - Database Atribute
 =========================
 
-This module allows you to save attributes of objects not in RAM, but in a database. the closest analogue is SQLAlchemy. Unlike SQLAlchemy, this module maximizes automatism, allowing the developer to focus on other details without worrying about working with the database.
+This module allows you to save attributes of objects not in RAM, but in a database. the closest analogue is <a href='https://github.com/sqlalchemy/sqlalchemy'>SQLAlchemy</a>. Unlike SQLAlchemy, this module maximizes automatism, allowing the developer to focus on other details without worrying about working with the database.
 
 # Supported types
 
@@ -204,5 +204,5 @@ update_list_of_books_for_this_user(1)
 
 # Data base
 
-this module used mysql db, and for use it, you need install mysql from https://www.mysql.com/downloads
+this module used mysql db, and for use it, you need install <a href='https://www.mysql.com'>mysql</a>
 
