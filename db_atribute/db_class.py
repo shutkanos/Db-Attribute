@@ -544,8 +544,29 @@ class DbDeque(DbClass, collections.deque): pass
 
 @DbClassDecorator
 class DbDatetime(DbClass, datetime.datetime):
-    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
-        super().__init__(*args, _call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
+    def __init__(self, year, month=None, day=None, hour=0, minute=0, second=0, microsecond=0, tzinfo=None, *, fold=0, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
+        super().__init__(_call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
+    def __iadd__(self, other):
+        obj = cheaker.create_db_class(self.__add__(other), _obj_dbatribute=self._obj_dbatribute, _name_atribute=self._name_atribute, _first_container=self._first_container)
+        if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
+        return obj
+    def __isub__(self, other):
+        obj = cheaker.create_db_class(self.__sub__(other), _obj_dbatribute=self._obj_dbatribute, _name_atribute=self._name_atribute, _first_container=self._first_container)
+        if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
+        return obj
+
+    @classmethod
+    def __convert_obj__(cls, obj: datetime.datetime, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+        return cls(year=obj.year, month=obj.month, day=obj.day, hour=obj.hour, minute=obj.minute, second=obj.second, microsecond=obj.microsecond, tzinfo=obj.tzinfo, fold=obj.fold, _use_db=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+
+    def dumps(self, _return_json=True):
+        if _return_json: return json.dumps({'t': self.__class__.__name__, 'd': self.isoformat()})
+        return {'t': self.__class__.__name__, 'd': self.isoformat()}
+
+    @classmethod
+    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+        if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+        return cheaker.create_db_class(cls.fromisoformat(tempdata['d']), _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
 
 @DbClassDecorator
 class DbDate(DbClass, datetime.date): pass
@@ -554,7 +575,18 @@ class DbDate(DbClass, datetime.date): pass
 class DbTime(DbClass, datetime.time): pass
 
 @DbClassDecorator
-class DbTimedelta(DbClass, datetime.timedelta): pass
+class DbTimedelta(DbClass, datetime.timedelta):
+    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
+        super().__init__(*args, _call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
+
+    def dumps(self, _return_json=True):
+        if _return_json: return json.dumps({'t': self.__class__.__name__, 'd': self.total_seconds()})
+        return {'t': self.__class__.__name__, 'd': self.total_seconds()}
+
+    @classmethod
+    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+        if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+        return cls(seconds=tempdata['d'], _use_db=True, _first_container=_first_container)
 
 class Cheaker:
     """
@@ -620,6 +652,9 @@ class Cheaker:
 
     def create_db_class(self, obj, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
         if type(obj) in self._db_classes:
+            cls = self._db_classes[type(obj)]
+            if hasattr(cls, '__convert_obj__'):
+                return cls.__convert_obj__(obj, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
             reductor = getattr(obj, "__reduce_ex__", None)
             if reductor is not None:
                 rv = reductor(4)
@@ -639,7 +674,7 @@ class Cheaker:
             else:
                 rv[0] = __newobj__
                 rv[1] = (1,) + rv[1]
-            rv[1] = (self._db_classes[type(obj)],) + rv[1][1:]
+            rv[1] = (cls,) + rv[1][1:]
             #print(f'{_first_container=}', rv[1], '|', [i for i in copy.deepcopy(rv[3])] if len(rv) >= 4 and rv[3] else None)
             obj = self._reconstruct(*rv,  _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
@@ -728,7 +763,7 @@ def convert_json_key_to_atr_key(key, type_key):
         return True if key == ' True ' else False
     return key
 
-cheaker = Cheaker({set: DbSet, list: DbList, dict: DbDict, tuple: DbTuple})
+cheaker = Cheaker({set: DbSet, list: DbList, dict: DbDict, tuple: DbTuple, datetime.datetime: DbDatetime, datetime.timedelta: DbTimedelta})
 
 if __name__ == "__main__":
     print(1)
@@ -835,9 +870,9 @@ if __name__ == "__main__":
         print(C, type(C))
         print(c, type(c))
     print(9, 'cheack _first_container')
-    temp_func = lambda inp: {id(inp._first_container.container)} | {j for i in inp if type(i) is not int for j in temp_func(i)}
-    temp_func_dict = lambda inp: {id(inp._first_container.container)} | {j for key in inp if type(inp[key]) is not int for j in temp_func(inp[key])}
-    A = DbTuple(([1], 2, 3), _use_db = True)
+    temp_func = lambda inp: {id(inp._first_container.container)} | {j for i in inp if hasattr(i, '__iter__') for j in temp_func(i)}
+    temp_func_dict = lambda inp: {id(inp._first_container.container)} | {j for key in inp if hasattr(inp[key], '__iter__') for j in temp_func(inp[key])}
+    A = DbTuple(([1], 2, 3, datetime.datetime(2024, 10, 4)), _use_db = True)
     A += ((4,),)
     if len(temp_func(A)) > 1:
         print('9.1 error:')
@@ -845,7 +880,7 @@ if __name__ == "__main__":
         print(id(A), id(A._first_container.container), id(A[0]._first_container.container))
         print(id(A._first_container), id(A[0]._first_container))
 
-    B = DbList([([1], 2, 3)], _use_db=True)
+    B = DbList([([1], 2, 3, datetime.datetime(2024, 10, 4))], _use_db=True)
     B[0] += ((4,),)
     if len(temp_func(B)) > 1:
         print('9.2 error:')
@@ -853,8 +888,8 @@ if __name__ == "__main__":
         print(id(B), id(B._first_container.container), id(B[0]._first_container.container), id(B[0][0]._first_container.container))
         print(id(B._first_container), id(B[0]._first_container), id(B[0][0]._first_container))
 
-    B = cheaker.create_db_class([[1, (2,(3,),[4]), {5, (6,(7,))}, {(8, 3), 5}], (9,(10,),[11])])
-    if B != [[1, (2,(3,),[4]), {5, (6,(7,))}, {(8, 3), 5}], (9,(10,),[11])]:
+    B = cheaker.create_db_class([[1, (2,(3,),[4],datetime.datetime(2024, 10, 4)), {5, (6,(7,))}, {(8, 3), 5}], (9,(10,),[11])])
+    if B != [[1, (2,(3,),[4],datetime.datetime(2024, 10, 4)), {5, (6,(7,))}, {(8, 3), 5}], (9,(10,),[11])]:
         print('9.3.a error:')
         print(B, type(B))
     B += [(12,)]
@@ -884,10 +919,40 @@ if __name__ == "__main__":
     print(10, 'cheack datetime')
     A = DbDatetime(2024, 11, 4, _use_db=True)
     if A != datetime.datetime(2024, 11, 4) or type(A) is not DbDatetime:
-        print('10.1 error:')
+        print('10.1.1 error:')
         print(A, type(A))
     A = cheaker.create_db_class(datetime.datetime(2024, 11, 4))
     if A != datetime.datetime(2024, 11, 4) or type(A) is not DbDatetime:
-        print('10.2 error:')
+        print('10.1.2 error:')
         print(A, type(A))
+    A = DbClass.loads(A.dumps())
+    if A != datetime.datetime(2024, 11, 4) or type(A) is not DbDatetime:
+        print('10.1.3 error:')
+        print(A, type(A))
+    B = DbList([A], _use_db=True)
+    B = DbClass.loads(B.dumps())
+    if B[0] != datetime.datetime(2024, 11, 4) or type(B[0]) is not DbDatetime:
+        print('10.1.4 error:')
+        print(A, type(A))
+    A = DbTimedelta(microseconds=10, _use_db=True)
+    if A != datetime.timedelta(microseconds=10) or type(A) is not DbTimedelta:
+        print('10.2.1 error:')
+        print(A, type(A))
+    A = DbClass.loads(A.dumps())
+    if A != datetime.timedelta(microseconds=10) or type(A) is not DbTimedelta:
+        print('10.2.2 error:')
+        print(A, type(A))
+    A = DbTimedelta(seconds=10**6, _use_db=True)
+    if A != datetime.timedelta(seconds=10**6) or type(A) is not DbTimedelta:
+        print('10.2.3 error:')
+        print(A, type(A))
+    A = DbClass.loads(A.dumps())
+    if A != datetime.timedelta(seconds=10**6) or type(A) is not DbTimedelta:
+        print('10.2.4 error:')
+        print(A, type(A))
+    B = DbDatetime(2024, 11, 4, _use_db=True)
+    B -= A
+    if B != datetime.datetime(2024, 10, 23, 10, 13, 20) or type(B) is not DbDatetime:
+        print('10.3.1 error:')
+        print(B, type(B))
 
