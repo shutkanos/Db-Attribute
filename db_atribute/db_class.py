@@ -189,35 +189,74 @@ def LoadDecorator(func=None, /, *, auto_step1=True, auto_step2=True, auto_step3=
         return wrap
     return wrap(func)
 
-def DbClassDecorator(cls):
-    if len(cls.__mro__) == 2 or (not issubclass(cls.__mro__[1], DbClass)):
-        cls._standart_class = cls.__mro__[1]
-    else:
-        cls._standart_class = cls.__mro__[2]
+def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, convert_arguments_changes_methodes=True, list_of_non_replaceable_methodes=None, list_of_methodes_with_converted_arguments=None):
+    """
+    Use DbClassDecorator for
+    1) set cls._standart_class (example: for DbList standart class is list)
+    2) automatic create __setitem__, __delitem__, __setattr__, __delattr__, __iadd__, __isub__, __imul__, __imatmul__, __ipow__, __idiv__, __ifloordiv__, __itruediv__, __ilshift__, __irshift__, __imod__, __ior__, __iand__, __ixor__
+    (DbClassDecorator not created __add__, __sub__ and other methodes!)
+    If a class has any methods (example: __iadd__), these methods are not replaced.
+    But if the parent class has these methods, they will be replaced.
+    So use the list_of_non_replaceable_methodes to set a list of non-replaceable methods
+    :param convert_arguments_ioperation_methodes: convert input arguments of i operation metodes (__iadd__) to DbClasses
+    :param convert_arguments_changes_methodes: convert input arguments of changes metodes (__delitem__, __setattr__) to DbClasses
+    :param list_of_non_replaceable_methodes: list of method names that belong to the parent class and will not be replaced by the decorator, ex: ['__iadd__']
+    :param list_of_methodes_with_converted_arguments: list of methods that need to be individually replaced with arguments, but param convert_arguments... is False, ex: ['__iadd__']
+    :return:
+    """
+    if list_of_non_replaceable_methodes is None:
+        list_of_non_replaceable_methodes = []
+    if list_of_methodes_with_converted_arguments is None:
+        list_of_methodes_with_converted_arguments = []
+    def wrapper(cls):
+        if cls.__dict__.get('_standart_class', None) is None:
+            if len(cls.__mro__) == 2 or (not issubclass(cls.__mro__[1], DbClass)):
+                cls._standart_class = cls.__mro__[1]
+            else:
+                cls._standart_class = cls.__mro__[2]
+            #print(cls, cls.__mro__, cls._standart_class)
 
-    def getimethod(truefunc):
-        def wrapper(self, *args, _update=True, **kwargs):
-            obj = truefunc(self, *args, **kwargs)
-            if _update and isinstance(obj, DbClass): obj._update_obj()
-            return obj
+        def getimethod(truefunc, namefunc=''):
+            convert_arguments = convert_arguments_ioperation_methodes
+            if namefunc in list_of_methodes_with_converted_arguments:
+                convert_arguments = True
+            def wrapper(self, *args, _update=True, **kwargs):
+                if convert_arguments:
+                    args = (cheaker.create_db_class(i, _first_container=self._first_container if self._first_container else _FirstContainer(self)) for i in args)
+                    kwargs = {key: cheaker.create_db_class(kwargs[key], _first_container=self._first_container if self._first_container else _FirstContainer(self)) for key in kwargs}
+
+                obj = truefunc(self, *args, **kwargs)
+                if _update and isinstance(obj, DbClass):
+                    obj._update_obj()
+                return obj
+            return wrapper
+
+        def getmethod(truefunc, namefunc=''):
+            convert_arguments = convert_arguments_changes_methodes
+            if namefunc in list_of_methodes_with_converted_arguments:
+                convert_arguments = True
+            def wrapper(self, *args, _update=True, **kwargs):
+                if convert_arguments:
+                    args = (cheaker.create_db_class(i, _first_container=self._first_container if self._first_container else _FirstContainer(self)) for i in args)
+                    kwargs = {key: cheaker.create_db_class(kwargs[key], _first_container=self._first_container if self._first_container else _FirstContainer(self)) for key in kwargs}
+
+                data = truefunc(self, *args, **kwargs)
+                if _update: self._update_obj()
+                return data
+            return wrapper
+
+        for namefunc in ['__iadd__', '__isub__', '__imul__', '__imatmul__', '__ipow__', '__idiv__', '__ifloordiv__', '__itruediv__', '__ilshift__', '__irshift__', '__imod__', '__ior__', '__iand__', '__ixor__']:
+            if hasattr(cls, namefunc) and namefunc not in cls.__dict__ and namefunc not in list_of_non_replaceable_methodes:
+                func = getimethod(getattr(cls, namefunc), namefunc)
+                setattr(cls, namefunc, func)
+        for namefunc in ['__setitem__', '__delitem__', '__setattr__', '__delattr__']:
+            if hasattr(cls, namefunc) and namefunc not in cls.__dict__ and namefunc not in list_of_non_replaceable_methodes:
+                func = getmethod(getattr(cls, namefunc), namefunc)
+                setattr(cls, namefunc, func)
+        return cls
+    if cls is None:
         return wrapper
-
-    def getmethod(truefunc):
-        def wrapper(self, *args, _update=True, **kwargs):
-            data = truefunc(self, *args, **kwargs)
-            if _update: self._update_obj()
-            return data
-        return wrapper
-
-    for namefunc in ['__iadd__', '__isub__', '__imul__', '__imatmul__', '__ipow__', '__idiv__', '__ifloordiv__', '__itruediv__', '__ilshift__', '__irshift__', '__imod__', '__ior__', '__iand__', '__ixor__']:
-        if hasattr(cls, namefunc) and namefunc not in cls.__dict__:
-            func = getimethod(getattr(cls, namefunc))
-            setattr(cls, namefunc, func)
-    for namefunc in ['__setitem__', '__delitem__', '__setattr__', '__delattr__']:
-        if hasattr(cls, namefunc) and namefunc not in cls.__dict__:
-            func = getmethod(getattr(cls, namefunc))
-            setattr(cls, namefunc, func)
-    return cls
+    return wrapper(cls)
 
 class _FirstContainer:
     def __init__(self, _first_container=None):
@@ -230,26 +269,6 @@ class DbClass:
     _name_atribute = None
     _first_container = None
     _call_init_when_reconstruct = False
-
-    @staticmethod
-    def __method_decorator(func):
-        func.truefunc = None
-        @functools.wraps(func)
-        def wrapper(self, *args, _update=True, **kwargs):
-            data = func.truefunc(self, *args, **kwargs)
-            if _update: self._update_obj()
-            return data
-        return wrapper
-
-    @staticmethod
-    def __imethod_decorator(func):
-        func.truefunc = None
-        @functools.wraps(func)
-        def wrapper(self, *args, _update=True, **kwargs):
-            obj = func.truefunc(self, *args, **kwargs)
-            if _update and isinstance(obj, DbClass): self._update_obj()
-            return obj
-        return wrapper
 
     def __new__(cls, *args, _use_db=False, _obj_dbatribute=None, _convert_arguments=True, _name_atribute=None, _first_container=None, **kwargs):
         if not _use_db:
@@ -350,11 +369,12 @@ class DbClass:
             return loadcls.loads(temp, _call_the_super=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return cheaker.create_db_class(pickle.loads(temp['d'].encode('latin1')), _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
 
-@DbClassDecorator
+@DbClassDecorator(list_of_methodes_with_converted_arguments=['__iadd__'])
 class DbList(DbClass, list):
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
         super().__init__(*args, _call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
         iterable = list(args[0])
+
         if _convert_arguments:
             iterable = [cheaker.create_db_class(i, _first_container=self._first_container) for i in iterable]
         list.__init__(self, iterable)
@@ -392,7 +412,7 @@ class DbList(DbClass, list):
         obj.__init__(data, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
 
-@DbClassDecorator
+@DbClassDecorator(list_of_methodes_with_converted_arguments=['__ior__', '__iand__'])
 class DbSet(DbClass, set):
     _call_init_when_reconstruct = True
 
@@ -437,7 +457,7 @@ class DbSet(DbClass, set):
         obj.__init__(data, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
 
-@DbClassDecorator
+@DbClassDecorator(list_of_methodes_with_converted_arguments=['__ior__'])
 class DbDict(DbClass, dict):
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
         super().__init__(*args, _call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
@@ -499,7 +519,8 @@ class DbTuple(DbClass, tuple):
 
     def __iadd__(self, other):
         obj = self.__class__(self.__add__(other), _use_db=True, _obj_dbatribute=self._obj_dbatribute, _name_atribute=self._name_atribute, _first_container=self._first_container)
-        obj.__dict__['_first_container'].container = obj
+        if self._first_container.container is self:
+            obj.__dict__['_first_container'].container = obj
         return obj
 
     def dumps(self, _return_json=True):
@@ -515,16 +536,24 @@ class DbTuple(DbClass, tuple):
         obj.__init__(_convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
 
+@DbClassDecorator
 class Dbfrozenset(DbClass, frozenset): pass
 
+@DbClassDecorator
 class DbDeque(DbClass, collections.deque): pass
 
-class DbDatetime(DbClass, datetime.datetime): pass
+@DbClassDecorator
+class DbDatetime(DbClass, datetime.datetime):
+    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
+        super().__init__(*args, _call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
 
+@DbClassDecorator
 class DbDate(DbClass, datetime.date): pass
 
+@DbClassDecorator
 class DbTime(DbClass, datetime.time): pass
 
+@DbClassDecorator
 class DbTimedelta(DbClass, datetime.timedelta): pass
 
 class Cheaker:
@@ -611,15 +640,18 @@ class Cheaker:
                 rv[0] = __newobj__
                 rv[1] = (1,) + rv[1]
             rv[1] = (self._db_classes[type(obj)],) + rv[1][1:]
+            #print(f'{_first_container=}', rv[1], '|', [i for i in copy.deepcopy(rv[3])] if len(rv) >= 4 and rv[3] else None)
             obj = self._reconstruct(*rv,  _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
 
     def _reconstruct(self, func, args, state=None, listiter=None, dictiter=None, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        y = func(*args)
+        y = func(*args, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         if _first_container is None:
             _first_container = _FirstContainer(y)
+        if y.__dict__.get('_first_container', None) is None:
+            y.__dict__['_first_container'] = _first_container
         if y._call_init_when_reconstruct:
-            y.__init__(*args[1:])
+            y.__init__(*args[1:], _obj_dbatribute=None, _name_atribute=None, _first_container=None)
         if state is not None:
             if hasattr(y, '__setstate__'):
                 y.__setstate__(state)
@@ -663,10 +695,10 @@ class Cheaker:
             return obj in self._db_classes.values()
         return type(obj) in self._db_classes.values()
 
-def __newobj_ex__(cls, args, kwargs):
-    return cls.__new__(cls, *args, *kwargs, _use_db=True)
-def __newobj__(cls, *args):
-    obj = cls.__new__(cls, *args, _use_db=True)
+def __newobj_ex__(cls, args, kwargs, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+    return cls.__new__(cls, *args, *kwargs, _use_db=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+def __newobj__(cls, *args, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+    obj = cls.__new__(cls, *args, _use_db=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
     return obj
 
 def convert_atr_value_to_json_value(value):
@@ -699,15 +731,6 @@ def convert_json_key_to_atr_key(key, type_key):
 cheaker = Cheaker({set: DbSet, list: DbList, dict: DbDict, tuple: DbTuple})
 
 if __name__ == "__main__":
-    print(0)
-    A = DbTuple([[1], 2, 3], _use_db = True)
-    A += (4,)
-    A[0].append(2)
-    if A[0]._first_container.container is not A or A != ([1, 2], 2, 3, 4):
-        print(A, type(A))
-        print(A[0], type(A[0]))
-        print(A[0]._first_container.container)
-
     print(1)
     A = DbDict([[0, 1], [1, 4], [2, 3], [3, 2], [4, 4]], _use_db = True)
     B = DbList([1, 4, 3, 2, 4], _use_db = True)
@@ -797,19 +820,74 @@ if __name__ == "__main__":
     b = DbClass.loads(B.dumps())
     c = DbClass.loads(C.dumps())
     if A != a:
-        print('A')
+        print('8.A error:')
         print(A.dumps(), type(A.dumps()))
         print(A, type(A))
         print(a, type(a))
     if B != b:
-        print('B')
+        print('8.B error:')
         print(B.dumps(), type(B.dumps()))
         print(B, type(B))
         print(b, type(b))
     if C != c:
-        print('C')
+        print('8.C error:')
         print(C.dumps(), type(C.dumps()))
         print(C, type(C))
         print(c, type(c))
-    print(9)
-    A = DbDict({0: [1, 4, {1}], 1: 0}, _use_db = True)
+    print(9, 'cheack _first_container')
+    temp_func = lambda inp: {id(inp._first_container.container)} | {j for i in inp if type(i) is not int for j in temp_func(i)}
+    temp_func_dict = lambda inp: {id(inp._first_container.container)} | {j for key in inp if type(inp[key]) is not int for j in temp_func(inp[key])}
+    A = DbTuple(([1], 2, 3), _use_db = True)
+    A += ((4,),)
+    if len(temp_func(A)) > 1:
+        print('9.1 error:')
+        print(A, type(A), temp_func(A))
+        print(id(A), id(A._first_container.container), id(A[0]._first_container.container))
+        print(id(A._first_container), id(A[0]._first_container))
+
+    B = DbList([([1], 2, 3)], _use_db=True)
+    B[0] += ((4,),)
+    if len(temp_func(B)) > 1:
+        print('9.2 error:')
+        print(B, type(B), temp_func(B))
+        print(id(B), id(B._first_container.container), id(B[0]._first_container.container), id(B[0][0]._first_container.container))
+        print(id(B._first_container), id(B[0]._first_container), id(B[0][0]._first_container))
+
+    B = cheaker.create_db_class([[1, (2,(3,),[4]), {5, (6,(7,))}, {(8, 3), 5}], (9,(10,),[11])])
+    if B != [[1, (2,(3,),[4]), {5, (6,(7,))}, {(8, 3), 5}], (9,(10,),[11])]:
+        print('9.3.a error:')
+        print(B, type(B))
+    B += [(12,)]
+    B[0].append(13)
+    B[-1] = [1, 2]
+    B[0][1] += (4,)
+    B[0][2] |= {(3, (1,))}
+    B[0][2] -= {(3, (1,))}
+    B[0][2] |= {(3, (2,))}
+    B[0][2] &= {(3, (2,))}
+    if len(temp_func(B)) > 1:
+        print('9.3.b error:')
+        print(B, type(B), temp_func(B))
+
+    B = cheaker.create_db_class({(2, 3): [1, 2], 8: {1, 0, (3, 5)}})
+    if B != {(2, 3): [1, 2], 8: {1, 0, (3, 5)}} or type(B) is not DbDict:
+        print('9.4.a error:')
+        print(B, type(B))
+    B[9] = [(3, 5), {1, 0}, {3: 5}, [2]]
+    B |= {8: [1, (5, 8)]}
+    B |= {9: [3, 7, (3, 5)]}
+    if len(temp_func_dict(B)) > 1:
+        print('9.4.b error:')
+        print(B, type(B), temp_func_dict(B))
+
+
+    print(10, 'cheack datetime')
+    A = DbDatetime(2024, 11, 4, _use_db=True)
+    if A != datetime.datetime(2024, 11, 4) or type(A) is not DbDatetime:
+        print('10.1 error:')
+        print(A, type(A))
+    A = cheaker.create_db_class(datetime.datetime(2024, 11, 4))
+    if A != datetime.datetime(2024, 11, 4) or type(A) is not DbDatetime:
+        print('10.2 error:')
+        print(A, type(A))
+
