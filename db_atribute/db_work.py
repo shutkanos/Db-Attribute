@@ -2,6 +2,7 @@ import functools
 import json
 
 import db_atribute.db_class as db_class
+import db_atribute.dbtypes as dbtypes
 
 def convert_atribute_type_to_mysql_type(atribute_type, len_varchar=50):
     if atribute_type == str:
@@ -10,23 +11,25 @@ def convert_atribute_type_to_mysql_type(atribute_type, len_varchar=50):
         return {'status_code': 200, 'data': f'bigint'}
     if atribute_type == float or atribute_type == bool:
         return {'status_code': 200, 'data': atribute_type.__name__.upper()}
-    if db_class.cheaker.this_db_atribute_support_class(atribute_type, this_is_cls=True):
+    if db_class.cheaker.this_db_atribute_support_class(atribute_type, this_is_cls=True) or atribute_type is dbtypes.JsonType:
         return {'status_code': 200, 'data': 'json'}
     return {'status_code': 300}
 
 def convert_mysql_type_to_atribute_type(mysql_type):
-    """for get mysql_type use Db_work.get_type_data_table"""
+    """Not used!"""
+    print('Worn! convert_mysql_type_to_atribute_type is not used not. Without support json')
     convert_dict = {'varchar': str, 'int': int, 'float': float, 'tinyint': bool, 'json': db_class.DbClass}
     if mysql_type in convert_dict:
         return {'status_code': 200, 'data': convert_dict[mysql_type]}
     return {'status_code': 300}
 
-def convert_atribute_value_to_mysql_value(atribute_value):
-    atribute_type = atribute_value.__class__
+def convert_atribute_value_to_mysql_value(atribute_value, atribute_type):
     if atribute_type in (int, float, bool):
         return {'status_code': 200, 'data': f'{atribute_value}'}
     if atribute_type == str:
         return {'status_code': 200, 'data': json.dumps(atribute_value)}
+    if atribute_type is dbtypes.JsonType:
+        return {'status_code': 200, 'data': f'CAST({json.dumps(json.dumps(atribute_value))} AS JSON)'}
     if db_class.cheaker.this_db_atribute_support_class(atribute_type, this_is_cls=True):
         return {'status_code': 200, 'data': f'CAST({json.dumps(atribute_value.dumps())} AS JSON)'}
     if db_class.cheaker.this_support_class(atribute_type, this_is_cls=True):
@@ -38,6 +41,8 @@ def convert_mysql_value_to_atribute_value(mysql_value, atribute_type, _obj_dbatr
         return {'status_code': 200, 'data': mysql_value}
     if atribute_type == bool:
         return {'status_code': 200, 'data': True if mysql_value else False}
+    if atribute_type is dbtypes.JsonType:
+        return {'status_code': 200, 'data': json.loads(mysql_value)}
     if issubclass(atribute_type, db_class.DbClass):
         return {'status_code': 200, 'data': db_class.DbClass.loads(mysql_value, _obj_dbatribute=_obj_dbatribute, _name_atribute=atribute_name)}
     return {'status_code': 300}
@@ -171,8 +176,10 @@ class Db_work:
         if temp_data['status_code'] != 200: return temp_data
         return {'status_code': 200}
 
-    def add_atribute_value(self, class_name: str, atribute_name: str, ID:int, data, cheak_exists_value:bool=True, update_value_if_exists:bool=True, ignore_302:bool=False):
-        temp_data = convert_atribute_value_to_mysql_value(data)
+    def add_atribute_value(self, class_name: str, atribute_name: str, ID:int, data, atribute_type=None, _cls_dbatribute=None, cheak_exists_value:bool=True, update_value_if_exists:bool=True, ignore_302:bool=False):
+        if atribute_type is None:
+            atribute_type = object.__getattribute__(_cls_dbatribute, '__annotations__')[atribute_name]
+        temp_data = convert_atribute_value_to_mysql_value(data, atribute_type=atribute_type)
         if temp_data['status_code'] != 200: return temp_data
         value = temp_data['data']
         table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)
@@ -190,8 +197,10 @@ class Db_work:
             atribute_type = db_class.cheaker.class_name_to_db_class[atribute_type.__name__]
         return convert_mysql_value_to_atribute_value(value, atribute_type=atribute_type, _obj_dbatribute=_obj_dbatribute, atribute_name=atribute_name)
 
-    def found_ids_by_value(self, class_name: str, atribute_name: str, data, ignore_302:bool=False):
-        temp_data = convert_atribute_value_to_mysql_value(data)
+    def found_ids_by_value(self, class_name: str, atribute_name: str, data, atribute_type=None, _cls_dbatribute=None, ignore_302:bool=False):
+        if atribute_type is None:
+            atribute_type = object.__getattribute__(_cls_dbatribute, '__annotations__')[atribute_name]
+        temp_data = convert_atribute_value_to_mysql_value(data, atribute_type=atribute_type)
         if temp_data['status_code'] != 200: return temp_data
         value = temp_data['data']
         table_name = get_table_name(class_name=class_name, atribute_name=atribute_name)

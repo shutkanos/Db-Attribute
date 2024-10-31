@@ -4,8 +4,9 @@ from dataclasses import MISSING
 
 import db_atribute.db_class as db_class
 import db_atribute.db_work as db_work
+import db_atribute.dbtypes as dbtypes
 
-__all__ = ['dbDecorator', 'db_field', 'DbAtribute', 'db_work', 'db_class', 'connector']
+__all__ = ['dbDecorator', 'db_field', 'DbAtribute', 'db_work', 'db_class', 'connector', 'dbtypes']
 __version__ = '1.2'
 
 def dbDecorator(cls=None, /, kw_only=False, _db_Atribute__dbworkobj=None):
@@ -20,15 +21,15 @@ def dbDecorator(cls=None, /, kw_only=False, _db_Atribute__dbworkobj=None):
 
         if '_db_Atribute__list_db_atributes' not in cls.__dict__:
             cls._db_Atribute__list_db_atributes = set()
-        cls._db_Atribute__list_db_atributes = set(cls._db_Atribute__list_db_atributes | {i for i in cls.__annotations__ if isinstance(_Fields[i], DbField)})
+        cls._db_Atribute__list_db_atributes = set(cls._db_Atribute__list_db_atributes | {i for i in cls.__annotations__ if isinstance(_Fields[i], dbtypes.DbField)})
 
-        print(f'{_Fields=}')
+        #print(f'{_Fields=}')
         #print(f'{_Fields["_db_Atribute__list_db_atributes"]._field_type == dataclasses._FIELD_CLASSVAR}')
 
         fields_kw_only_init = [i for i in _Fields if _Fields[i].kw_only and _Fields[i].init]
-        fields_kw_only_init_db_atributes = [i for i in _Fields if _Fields[i].kw_only and _Fields[i].init and isinstance(_Fields[i], DbField)]
+        fields_kw_only_init_db_atributes = [i for i in _Fields if _Fields[i].kw_only and _Fields[i].init and isinstance(_Fields[i], dbtypes.DbField)]
         fields_not_kw_only_init = [i for i in _Fields if (not _Fields[i].kw_only) and _Fields[i].init]
-        fields_not_kw_only_init_db_atributes = [i for i in _Fields if isinstance(_Fields[i], DbField) and (not _Fields[i].kw_only) and _Fields[i].init]
+        fields_not_kw_only_init_db_atributes = [i for i in _Fields if isinstance(_Fields[i], dbtypes.DbField) and (not _Fields[i].kw_only) and _Fields[i].init]
         #init_db_atributes = [i for i in _Fields if isinstance(_Fields[i], DbField) and _Fields[i].init]
 
         set_db_atributes = set(cls._db_Atribute__list_db_atributes)
@@ -74,8 +75,8 @@ def dbDecorator(cls=None, /, kw_only=False, _db_Atribute__dbworkobj=None):
             #        temp_data.add(i)
             #db_args_not_set -= temp_data
 
-            kwargs |= {i: NotSet for i in db_args_not_set}
-            kwargs |= {i: NotSet for i in set_fields_kw_only_init_db_atributes - set(kwargs)}
+            kwargs |= {i: dbtypes.NotSet for i in db_args_not_set}
+            kwargs |= {i: dbtypes.NotSet for i in set_fields_kw_only_init_db_atributes - set(kwargs)}
             self._db_Atribute__dump_mode = True
             return cls.__old_init__(self, *args, **kwargs)
         cls.__old_init__ = cls.__init__
@@ -88,13 +89,7 @@ def dbDecorator(cls=None, /, kw_only=False, _db_Atribute__dbworkobj=None):
 def db_field(*, default=MISSING, default_factory=MISSING, init=True, repr=True, hash=None, compare=True, metadata=None, kw_only=MISSING):
     if default is not MISSING and default_factory is not MISSING:
         raise ValueError('cannot specify both default and default_factory')
-    return DbField(default, default_factory, init, repr, hash, compare, metadata, kw_only)
-
-class NotSet:
-    pass
-
-class DbField(dataclasses.Field):
-    pass
+    return dbtypes.DbField(default, default_factory, init, repr, hash, compare, metadata, kw_only)
 
 @dataclasses.dataclass
 class DbAtribute:
@@ -111,13 +106,13 @@ class DbAtribute:
 
     @classmethod
     def _db_atribute_get_default_value(cls, fieldname):
-        Field = getattr(cls, '__dataclass_fields__').get(fieldname, NotSet)
-        if Field is NotSet or (Field.default is MISSING and Field.default_factory is MISSING): return NotSet
+        Field = getattr(cls, '__dataclass_fields__').get(fieldname, dbtypes.NotSet)
+        if Field is dbtypes.NotSet or (Field.default is MISSING and Field.default_factory is MISSING): return dbtypes.NotSet
         if Field.default is not MISSING: return Field.default
         return Field.default_factory()
 
     def _db_atribute_set_attr(self, key, value):
-        if value is NotSet:
+        if value is dbtypes.NotSet:
             return
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
@@ -132,7 +127,7 @@ class DbAtribute:
         if db_work.get_table_name(cls.__name__, key) not in cls._db_Atribute__dbworkobj.active_tables:
             cls._db_Atribute__dbworkobj.create_atribute_table(class_name=cls.__name__, atribute_name=key, atribute_type=type(obj))
             cheak_exists_value = False
-        cls._db_Atribute__dbworkobj.add_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], data=obj, cheak_exists_value=cheak_exists_value)
+        cls._db_Atribute__dbworkobj.add_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], data=obj, _cls_dbatribute=cls, cheak_exists_value=cheak_exists_value)
 
     def _db_atribute_get_attr(self, key):
         cls = object.__getattribute__(self, '__class__')
@@ -154,15 +149,15 @@ class DbAtribute:
         :type key: str
         :param data: the atribute (DbDict, DbSet and others containers)
         """
-        cls = object.__getattribute__(self, '__class__')
         self_dict = object.__getattribute__(self, '__dict__')
         if ('_db_Atribute__dump_mode' not in self_dict) or (not self_dict['_db_Atribute__dump_mode']):
             return
+        cls = object.__getattribute__(self, '__class__')
         cls._db_Atribute__dbworkobj.add_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], data=data)
 
     @classmethod
     def _db_atribute_found_ids_by_atribute(cls, atribute_name:str, atribute_value):
-        tempdata = cls._db_Atribute__dbworkobj.found_ids_by_value(class_name=cls.__name__, atribute_name=atribute_name, data=atribute_value)
+        tempdata = cls._db_Atribute__dbworkobj.found_ids_by_value(class_name=cls.__name__, atribute_name=atribute_name, data=atribute_value, _cls_dbatribute=cls)
         if tempdata['status_code'] != 200:
             return []
         return tempdata['data']
