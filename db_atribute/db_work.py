@@ -219,7 +219,7 @@ class Db_work:
 
 
 if __name__ == '__main__':
-    from _db_info import host, user, password, database
+    from config import host, user, password, database
     import connector
 
     connect_obj = connector.Connection(host=host, user=user, password=password, database=database)

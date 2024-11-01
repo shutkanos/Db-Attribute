@@ -132,7 +132,7 @@ class DbAtribute:
 
     def _db_atribute_get_attr(self, key):
         cls = object.__getattribute__(self, '__class__')
-        if (key not in cls.__dict__['_db_Atribute__list_db_atributes']) or ('_db_Atribute__dump_mode' not in (self_dict := object.__getattribute__(self, '__dict__'))) or (not self_dict['_db_Atribute__dump_mode']):
+        if (key not in cls.__dict__['_db_Atribute__list_db_atributes']) or (not (self_dict := object.__getattribute__(self, '__dict__')).get('_db_Atribute__dump_mode', False)):
             return object.__getattribute__(self, key)
         temp_data = object.__getattribute__(cls, '_db_Atribute__dbworkobj').get_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], _obj_dbatribute=self)
         if temp_data['status_code'] == 302:
@@ -154,7 +154,7 @@ class DbAtribute:
         :param data: the atribute (DbDict, DbSet and others containers)
         """
         self_dict = object.__getattribute__(self, '__dict__')
-        if ('_db_Atribute__dump_mode' not in self_dict) or (not self_dict['_db_Atribute__dump_mode']):
+        if not self_dict.get('_db_Atribute__dump_mode', False):
             return
         cls = object.__getattribute__(self, '__class__')
         cls._db_Atribute__dbworkobj.add_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], data=data)
@@ -191,7 +191,7 @@ class DbAtribute:
         function set undump_mode (dump_mode = False)
         """
         self_dict = object.__getattribute__(self, '__dict__')
-        if ('_db_Atribute__dump_mode' in self_dict) and (not self_dict['_db_Atribute__dump_mode']): return
+        if not self_dict.get('_db_Atribute__dump_mode', True): return
         for db_atr in object.__getattribute__(self, '__class__').__dict__['_db_Atribute__list_db_atributes']:
             self_dict[db_atr] = self._db_atribute_get_attr(db_atr)
         self_dict['_db_Atribute__dump_mode'] = False
@@ -203,7 +203,7 @@ class DbAtribute:
         function set dump_mode (dump_mode = True) and call self.db_atribute_dump() for dump all atributes
         """
         self_dict = object.__getattribute__(self, '__dict__')
-        if ('_db_Atribute__dump_mode' not in self_dict) or self_dict['_db_Atribute__dump_mode']: return
+        if not self_dict.get('_db_Atribute__dump_mode', False): return
         self.db_atribute_dump()
         self_dict['_db_Atribute__dump_mode'] = True
         for db_atr in object.__getattribute__(self, '__class__').__dict__['_db_Atribute__list_db_atributes']:

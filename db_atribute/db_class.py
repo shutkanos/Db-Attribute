@@ -291,8 +291,12 @@ class DbClass:
             if _first_container is None:
                 self.__dict__['_first_container'] = _FirstContainer(self)
             else:
+                if not isinstance(_first_container, _FirstContainer):
+                    _first_container = _FirstContainer(_first_container)
                 self.__dict__['_first_container'] = _first_container
         if _call_super_init and _convert_arguments:
+            if not isinstance(_first_container, _FirstContainer):
+                _first_container = _FirstContainer(_first_container)
             args = (cheaker.create_db_class(i, _first_container=self._first_container) for i in args)
             kwargs = {key: cheaker.create_db_class(kwargs[key], _first_container=self._first_container) for key in kwargs}
         if _call_super_init:
@@ -452,7 +456,7 @@ class DbSet(DbClass, set):
         if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         obj = cls.__new__(cls, _use_db=True)
         if _first_container is None:
-            _first_container = obj
+            _first_container = _FirstContainer(obj)
         data = {conver_json_value_to_atr_value(value, _first_container=_first_container) for value in tempdata['d']}
         obj.__init__(data, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
@@ -487,7 +491,7 @@ class DbDict(DbClass, dict):
         if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         obj = cls.__new__(cls, _use_db=True)
         if _first_container is None:
-            _first_container = obj
+            _first_container = _FirstContainer(obj)
         data = {convert_json_key_to_atr_key(key, tempdata['dk'][key] if key in tempdata['dk'] else None)
                 : conver_json_value_to_atr_value(value, _first_container=_first_container)
                 for key, value in tempdata['d'].items()}
@@ -497,7 +501,7 @@ class DbDict(DbClass, dict):
 @DbClassDecorator
 class DbTuple(DbClass, tuple):
     _call_init_when_reconstruct = True
-    def __new__(cls, *args, _use_db=False, _obj_dbatribute=None, _convert_arguments=True, _name_atribute=None, _first_container=None, **kwargs):
+    def __new__(cls, *args, _use_db=False, _loads_iterable=False, _obj_dbatribute=None, _convert_arguments=True, _name_atribute=None, _first_container=None, **kwargs):
         if not _use_db:
             return DbClass.__new__(DbTuple, *args, **kwargs)
 
@@ -505,8 +509,10 @@ class DbTuple(DbClass, tuple):
             _first_container = _FirstContainer()
 
         iterable = tuple(args[0])
-        if _convert_arguments:
+        if (not _loads_iterable) and _convert_arguments:
             iterable = tuple((cheaker.create_db_class(i, _first_container=_first_container) for i in iterable))
+        if _loads_iterable:
+            iterable = tuple((conver_json_value_to_atr_value(value, _first_container=_first_container) for value in iterable))
 
         obj = tuple.__new__(DbTuple, iterable)
         if _first_container.container is None:
@@ -532,7 +538,7 @@ class DbTuple(DbClass, tuple):
     @classmethod
     def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
         if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
-        obj = cls.__new__(cls, tempdata['d'], _use_db=True)
+        obj = cls.__new__(cls, tempdata['d'], _use_db=True, _loads_iterable=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         obj.__init__(_convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
 
@@ -906,15 +912,18 @@ if __name__ == "__main__":
         print('9.3.b error:')
         print(B, type(B), temp_func(B))
 
-    B = cheaker.create_db_class({(2, 3): [1, 2], 8: {1, 0, (3, 5)}})
-    if B != {(2, 3): [1, 2], 8: {1, 0, (3, 5)}} or type(B) is not DbDict:
+    B = cheaker.create_db_class({(1, 2): [3, 4], 5: {6, (7,)}, 8: (9, {10:11})})
+    if B != {(1, 2): [3, 4], 5: {6, (7,)}, 8: (9, {10:11})} or type(B) is not DbDict:
         print('9.4.a error:')
         print(B, type(B))
+    if len(temp_func_dict(B)) > 1:
+        print('9.4.b error:')
+        print(B, type(B), temp_func_dict(B))
     B[9] = [(3, 5), {1, 0}, {3: 5}, [2]]
     B |= {8: [1, (5, 8)]}
     B |= {9: [3, 7, (3, 5)]}
     if len(temp_func_dict(B)) > 1:
-        print('9.4.b error:')
+        print('9.4.c error:')
         print(B, type(B), temp_func_dict(B))
 
 
