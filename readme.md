@@ -165,41 +165,33 @@ DbAtribute.db_atribute_set_dump_mode set dump_mode to True and call dump
 DbAtribute.db_atribute_set_undump_mode set dump_mode to False
 
 ```python
-@dbDecorator(_db_Atribute__dbworkobj=*db work obj*)
-@dataclass
-class User(DbAtribute):
-    list_of_books: list = db_field(default_factory=lambda:[])
+user = User(id=1, any_db_data1=531, any_db_data2='string')
+print(user.__dict__)
+#{'id': 1, '_db_Atribute__dump_mode': True}
+user.db_atribute_set_undump_mode()
+print(user.__dict__)
+#{'id': 1, 'any_db_data1': 531, 'any_db_data2': 'string', '_db_Atribute__dump_mode': True}
+```
 
-def update_list_of_books_for_this_user(id_user):
-    user = User(id_user)
-    user.db_atribute_set_undump_mode()
-    for i in range(10**5):
-        user.list_of_books.append(i)
-    user.db_atribute_set_dump_mode()
-
-update_list_of_books_for_this_user(1)
+```python
+user = User(id=1, list_of_books=[])
+user.db_atribute_set_undump_mode()
+for i in range(10**5):
+    user.list_of_books.append(i)
+user.db_atribute_set_dump_mode()
 ```
 
 if you need dump attributes to db with undump_mode, you can use DbAtribute.db_atribute_dump
 
 ```python
-@dbDecorator(_db_Atribute__dbworkobj=*db work obj*)
-@dataclass
-class User(DbAtribute):
-    list_of_books: list = db_field(default_factory=lambda:[])
-
-def update_list_of_books_for_this_user(id_user):
-    user = User(id_user)
-    user.db_atribute_set_undump_mode()
-    for i in range(10**4):
-        user.list_of_books.append(i)
-    user.db_atribute_dump() #dump the list_of_books to db
-    time.sleep(60)
-    for i in range(10**4):
-        user.list_of_books.append(i)
-    user.db_atribute_set_dump_mode()
-
-update_list_of_books_for_this_user(1)
+user = User(id=1, list_of_books=[])
+user.db_atribute_set_undump_mode()
+for i in range(10**4):
+    user.list_of_books.append(i)
+user.db_atribute_dump() #dump the list_of_books to db
+for i in range(10**4):
+    user.list_of_books.append(i)
+user.db_atribute_set_dump_mode()
 ```
 
 ## Types
