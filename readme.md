@@ -5,7 +5,7 @@ This module allows you to save attributes of objects not in RAM, but in a databa
 
 # Supported types
 
-This module supported standart types: `int`, `float`, `str`, `bool`, `tuple`, `list`, `set`, `dict`.
+This module supported standart types: `int`, `float`, `str`, `bool`, `None`, `tuple`, `list`, `set`, `dict`, `datetime`.
 
 if the developer needs other data types, he will need to write an adapter class.
 
@@ -201,6 +201,83 @@ def update_list_of_books_for_this_user(id_user):
 
 update_list_of_books_for_this_user(1)
 ```
+
+## Types
+### Db classes
+when collections are stored in memory, they converted to Db classes
+```python
+obj = User(1, list_of_books=[1, 2, 3])
+print(type(obj.list_of_books)) #DbList
+```
+```python
+obj = User(1, times=[datetime(2024, 1, 1)])
+print(type(obj.times[0])) #DbDatetime
+```
+and when collections dumped to db, they converted to json
+```python
+obj = User(1, list_of_books=[1, 2, 3])
+print(obj.list_of_books.dumps()) #{"t": "DbList", "d": [1, 2, 3]}
+```
+```python
+obj = User(1, times=[datetime(2024, 1, 1), datetime(2027, 7, 7)])
+print(obj.list_of_books.dumps())
+#{"t": "DbList", "d": [{"t": "DbDatetime", "d": "2024-01-01T00:00:00"}, {"t": "DbDatetime", "d": "2027-07-07T00:00:00"}]}
+```
+
+### Json type
+
+db atribute support `tuple`, `list`, `dict`, other collections, but this types slow, because uses Db classes (see [speed test](#speed-test)).
+
+to solve this problem, use a Json convertation
+```python
+from db_atribute.dbtypes import JsonType
+
+@dbDecorator(_db_Atribute__dbworkobj=*db work obj*)
+@dataclass
+class User(DbAtribute):
+    sittings: JsonType = db_field()
+
+obj = User(1, sittings={1: 2, 3: [4, 5]})
+print(obj.sittings) #{'1': 2, '3': [4, 5]}
+print(type(obj.sittings)) #dict
+```
+but:
+1) if you change obj with JsonType, this obj don't dump to db, you need set the new obj
+2) the json support only `dict`, `list`, `str`, `int`, `float`, `True`, `False`, `None`
+
+```python
+obj = User(1, sittings={1: 2, 3: [4, 5]})
+del obj.sittings['3'] # not changed
+obj.sittings['1'] = 3 # not changed
+obj.sittings |= {4: 5} # not changed
+print(obj.sittings) #{'1': 2, '3': [4, 5]}
+obj.sittings = {1: 3} # changed
+print(obj.sittings) #{'1': 3}
+```
+
+# Speed Test
+
+`op/sec` - `operation/second`
+
+mysql `select` - `12500` op/sec </br>
+db_atribute `get_attr`:
+
+`int`:      11658 op/sec -6%<br>
+`str`:      11971 op/sec -4%<br>
+`tuple`:    7578 op/sec -39%<br>
+`list`:     7881 op/sec -36%<br>
+`dict`:     8101 op/sec -35%<br>
+`JsonType`: 11937 op/sec -4%<br>
+
+mysql `insert/update` - `4500` op/sec<br>
+db_atribute `set_attr`:
+
+`int`:      4552 op/sec +0%<br>
+`str`:      4341 op/sec -3% <br>
+`tuple`:    3419 op/sec -24%<br>
+`list`:     3271 op/sec -27%<br>
+`dict`:     3332 op/sec -25%<br>
+`JsonType`: 4165 op/sec -7%<br>
 
 # Data base
 

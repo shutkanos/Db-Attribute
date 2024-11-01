@@ -116,24 +116,28 @@ class DbAtribute:
             return
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
-        if (key not in cls.__dict__['_db_Atribute__list_db_atributes']) or ('_db_Atribute__dump_mode' not in self_dict) or (not self_dict['_db_Atribute__dump_mode']):
+        if (key not in cls.__dict__['_db_Atribute__list_db_atributes']) or (not self_dict.get('_db_Atribute__dump_mode', False)):
             return object.__setattr__(self, key, value)
         self._db_atribute_dump_attr_to_db(key, value)
 
-    def _db_atribute_dump_attr_to_db(self, key, value, cheak_exists_value=True):
+    def _db_atribute_dump_attr_to_db(self, key, value, cheak_exists_value=True, update_value=False):
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
-        obj = db_class.cheaker.create_db_class(value, _obj_dbatribute=self)
+        atribute_type = cls.__annotations__[key]
+        obj = db_class.cheaker.create_db_class(value, atribute_type=atribute_type, _obj_dbatribute=self)
         if db_work.get_table_name(cls.__name__, key) not in cls._db_Atribute__dbworkobj.active_tables:
-            cls._db_Atribute__dbworkobj.create_atribute_table(class_name=cls.__name__, atribute_name=key, atribute_type=type(obj))
+            cls._db_Atribute__dbworkobj.create_atribute_table(class_name=cls.__name__, atribute_name=key, _cls_dbatribute=cls)
             cheak_exists_value = False
-        cls._db_Atribute__dbworkobj.add_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], data=obj, _cls_dbatribute=cls, cheak_exists_value=cheak_exists_value)
+        cls._db_Atribute__dbworkobj.add_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], data=obj, _cls_dbatribute=cls, cheak_exists_value=cheak_exists_value, update_value=update_value)
 
     def _db_atribute_get_attr(self, key):
         cls = object.__getattribute__(self, '__class__')
         if (key not in cls.__dict__['_db_Atribute__list_db_atributes']) or ('_db_Atribute__dump_mode' not in (self_dict := object.__getattribute__(self, '__dict__'))) or (not self_dict['_db_Atribute__dump_mode']):
             return object.__getattribute__(self, key)
-        temp_data = cls._db_Atribute__dbworkobj.get_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], _obj_dbatribute=self)
+        temp_data = object.__getattribute__(cls, '_db_Atribute__dbworkobj').get_atribute_value(class_name=cls.__name__, atribute_name=key, ID=self_dict['id'], _obj_dbatribute=self)
+        if temp_data['status_code'] == 302:
+            object.__getattribute__(cls, '_db_Atribute__dbworkobj').create_atribute_table(class_name=cls.__name__, atribute_name=key, _cls_dbatribute=cls)
+            temp_data['status_code'] = 304
         if temp_data['status_code'] == 304:
             value = cls._db_atribute_get_default_value(key)
             object.__getattribute__(self, '_db_atribute_dump_attr_to_db')(key, value, cheak_exists_value=False)

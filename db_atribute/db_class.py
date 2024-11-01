@@ -650,9 +650,11 @@ class Cheaker:
         """
         return [self.create_db_class(objs[i], _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container) for i in range(len(objs))]
 
-    def create_db_class(self, obj, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        if type(obj) in self._db_classes:
-            cls = self._db_classes[type(obj)]
+    def create_db_class(self, obj, *, atribute_type=None, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+        if (atribute_type is None and type(obj) in self._db_classes) or (atribute_type in self._db_classes):
+            if atribute_type is None:
+                atribute_type = type(obj)
+            cls = self._db_classes[atribute_type]
             if hasattr(cls, '__convert_obj__'):
                 return cls.__convert_obj__(obj, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
             reductor = getattr(obj, "__reduce_ex__", None)
