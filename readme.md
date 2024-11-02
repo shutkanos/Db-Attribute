@@ -19,7 +19,7 @@ for any class with DbAttribute you need
 * Use `@dataclasses.dataclass`
 * Use `@DbAttribute.dbDecorator`
 * create any field for database
-* create `_db_attribute__list_db_attributes: typing.ClassVar[list]` with database fields names.
+* create `_db_attribute__list_db_attributes: typing.ClassVar[set]` with database fields names.
 
 with `_db_attribute__list_db_attributes`
 
@@ -29,8 +29,7 @@ from typing import ClassVar
 
 from db_attribute import dbDecorator, DbAttribute, db_work, connector
 
-connect_obj = connector.Connection(host=*mysqlhost *, user=*user *, password=*password *, database=*database
-name *)
+connect_obj = connector.Connection(host=*mysqlhost*, user=*user*, password=*password*, database=*databasename*)
 db_work_obj = db_work.Db_work(connect_obj)
 
 
@@ -44,7 +43,7 @@ class User(DbAttribute):
     other_int_information: int = 100
     list_of_books: list = field(default_factory=lambda: [])
     sittings: dict = field(default_factory=lambda: {})
-    _db_attribute__list_db_attributes: ClassVar[list] = ['name', 'age', 'ban', 'list_of_books', 'sittings']
+    _db_attribute__list_db_attributes: ClassVar[set] = {'name', 'age', 'ban', 'list_of_books', 'sittings'}
 ```
 
 without `_db_attribute__list_db_attributes` (automatic created)
@@ -54,8 +53,7 @@ from dataclasses import dataclass, field
 
 from db_attribute import dbDecorator, DbAttribute, db_field, db_work, connector
 
-connect_obj = connector.Connection(host=*mysqlhost *, user=*user *, password=*password *, database=*database
-name *)
+connect_obj = connector.Connection(host=*mysqlhost*, user=*user*, password=*password*, database=*databasename*)
 db_work_obj = db_work.Db_work(connect_obj)
 
 
@@ -81,13 +79,13 @@ class User(DbAttribute):
     #other code
 ```
 
-you can set _db_Attribute_dbworkobj in class
+you can set _db_attribute__dbworkobj in class
 
 ```python
 @dbDecorator
 @dataclass
 class User(DbAttribute):
-    _db_Attribute_dbworkobj: ClassVar = ... #*db_work_obj*
+    _db_attribute__dbworkobj: ClassVar = ... #*db work obj*
     #other code
 ```
 
@@ -228,17 +226,10 @@ to solve this problem, use a Json convertation
 ```python
 from db_attribute.dbtypes import JsonType
 
-
-@dbDecorator(_db_attribute__dbworkobj=*db
-
-
-work
-obj *)
-
+@dbDecorator(_db_attribute__dbworkobj=*db work obj*)
 @dataclass
 class User(DbAttribute):
     sittings: JsonType = db_field()
-
 
 obj = User(1, sittings={1: 2, 3: [4, 5]})
 print(obj.sittings)  # {'1': 2, '3': [4, 5]}
@@ -267,9 +258,9 @@ db_attribute `get_attr`:
 
 `int`:      11658 op/sec -6%<br>
 `str`:      11971 op/sec -4%<br>
-`tuple`:    7578 op/sec -39%<br>
-`list`:     7881 op/sec -36%<br>
-`dict`:     8101 op/sec -35%<br>
+`tuple`:    9685 op/sec -22%<br>
+`list`:     9161 op/sec -26%<br>
+`dict`:     9311 op/sec -25%<br>
 `JsonType`: 11937 op/sec -4%<br>
 
 mysql `insert/update` - `4500` op/sec<br>
