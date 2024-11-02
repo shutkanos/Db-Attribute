@@ -1,4 +1,4 @@
-DbAtribute - Database Atribute
+DbAttribute - Database Attribute
 =========================
 
 This module allows you to save attributes of objects not in RAM, but in a database. the closest analogue is <a href='https://github.com/sqlalchemy/sqlalchemy'>SQLAlchemy</a>. Unlike SQLAlchemy, this module maximizes automatism, allowing the developer to focus on other details without worrying about working with the database.
@@ -13,29 +13,30 @@ if the developer needs other data types, he will need to write an adapter class.
 
 ## Create class
 
-for any class with DbAtribute you need
+for any class with DbAttribute you need
 
-* Inheritance the `DbAtribute.DbAtribute`
+* Inheritance the `DbAttribute.DbAttribute`
 * Use `@dataclasses.dataclass`
-* Use `@DbAtribute.dbDecorator`
+* Use `@DbAttribute.dbDecorator`
 * create any field for database
-* create `_db_Atribute__list_db_atributes: typing.ClassVar[list]` with database fields names.
+* create `_db_attribute__list_db_attributes: typing.ClassVar[list]` with database fields names.
 
-with `_db_Atribute__list_db_atributes`
+with `_db_attribute__list_db_attributes`
 
 ```python
 from dataclasses import dataclass, field
 from typing import ClassVar
 
-from db_atribute import dbDecorator, DbAtribute, db_work, connector
+from db_attribute import dbDecorator, DbAttribute, db_work, connector
 
-connect_obj = connector.Connection(host=*mysqlhost*, user=*user*, password=*password*, database=*database name*)
+connect_obj = connector.Connection(host=*mysqlhost *, user=*user *, password=*password *, database=*database
+name *)
 db_work_obj = db_work.Db_work(connect_obj)
 
 
-@dbDecorator(_db_Atribute__dbworkobj=db_work_obj)
+@dbDecorator(_db_attribute__dbworkobj=db_work_obj)
 @dataclass
-class User(DbAtribute):
+class User(DbAttribute):
     other_dict_information: dict = field(default_factory=lambda: {})
     name: str = 'NotSet'
     age: int = -1
@@ -43,48 +44,50 @@ class User(DbAtribute):
     other_int_information: int = 100
     list_of_books: list = field(default_factory=lambda: [])
     sittings: dict = field(default_factory=lambda: {})
-    _db_Atribute__list_db_atributes: ClassVar[list] = ['name', 'age', 'ban', 'list_of_books', 'sittings']
+    _db_attribute__list_db_attributes: ClassVar[list] = ['name', 'age', 'ban', 'list_of_books', 'sittings']
 ```
 
-without `_db_Atribute__list_db_atributes` (automatic created)
+without `_db_attribute__list_db_attributes` (automatic created)
 
 ```python
 from dataclasses import dataclass, field
 
-from db_atribute import dbDecorator, DbAtribute, db_field, db_work, connector
+from db_attribute import dbDecorator, DbAttribute, db_field, db_work, connector
 
-connect_obj = connector.Connection(host=*mysqlhost*, user=*user*, password=*password*, database=*database name*)
+connect_obj = connector.Connection(host=*mysqlhost *, user=*user *, password=*password *, database=*database
+name *)
 db_work_obj = db_work.Db_work(connect_obj)
 
-@dbDecorator(_db_Atribute__dbworkobj=db_work_obj)
+
+@dbDecorator(_db_attribute__dbworkobj=db_work_obj)
 @dataclass
-class User(DbAtribute):
-    other_dict_information: dict = field(default_factory=lambda:{})
+class User(DbAttribute):
+    other_dict_information: dict = field(default_factory=lambda: {})
     name: str = db_field(default='NotSet')
     age: int = db_field(default=-1)
     ban: bool = db_field(default=False)
     other_int_information: int = 100
-    list_of_books: list = db_field(default_factory=lambda:[])
-    sittings: dict = db_field(default_factory=lambda:{})
+    list_of_books: list = db_field(default_factory=lambda: [])
+    sittings: dict = db_field(default_factory=lambda: {})
 ```
 
-with `id` (in other cases, id inheritance from DbAtribute.DbAtribute)
+with `id` (in other cases, id inheritance from DbAttribute.DbAttribute)
 
 ```python
-@dbDecorator(_db_Atribute__dbworkobj=*db work obj*)
+@dbDecorator(_db_attribute__dbworkobj=*db work obj*)
 @dataclass
-class User(DbAtribute):
+class User(DbAttribute):
     id: int
     #other code
 ```
 
-you can set _db_Atribute_dbworkobj in class
+you can set _db_Attribute_dbworkobj in class
 
 ```python
 @dbDecorator
 @dataclass
-class User(DbAtribute):
-    _db_Atribute_dbworkobj: ClassVar = ... #*db_work_obj*
+class User(DbAttribute):
+    _db_Attribute_dbworkobj: ClassVar = ... #*db_work_obj*
     #other code
 ```
 
@@ -123,21 +126,21 @@ obj = User(3)
 print(obj) #User(id=3, name='Anna', age=15)
 ```
 
-### Found obj by other atributes
+### Found obj by other attributes
 
-use cls.db_atribute_found_ids(**atributes) for get all ids with values of this atributes
+use cls.db_attribute_found_ids(**attributes) for get all ids with values of this attributes
 
 ```python
 obj = User(id=1, name='Bob', age=3),
 obj = User(id=2, name='Bob', age=2),
 obj = User(id=3, name='Anna', age=2)
 
-print(User.db_atribute_found_ids(name='Bob')) #{1, 2}
-print(User.db_atribute_found_ids(age=2)) #{2, 3}
-print(User.db_atribute_found_ids(name='Bob', age=2)) #{2}
+print(User.db_attribute_found_ids(name='Bob')) #{1, 2}
+print(User.db_attribute_found_ids(age=2)) #{2, 3}
+print(User.db_attribute_found_ids(name='Bob', age=2)) #{2}
 ```
 
-### Change atribute of obj
+### Change attribute of obj
 
 ```python
 obj = User(id=1, name='Bob', list_of_books=[])
@@ -156,42 +159,42 @@ print(obj.name) #Anna
 
 if in any function you will work with obj, you can activate undump_mode,
 
-*dump_mode*: atributes don't save in self.__dict__, all changes automatic dump in db.
+*dump_mode*: attributes don't save in self.__dict__, all changes automatic dump in db.
 
-*undump_mode*: all atributes save in self.__dict__, and won't dump in db until self.db_atribute_set_dump_mode is called. this helps to quickly perform operations on containers db attributes
+*undump_mode*: all attributes save in self.__dict__, and won't dump in db until self.db_attribute_set_dump_mode is called. this helps to quickly perform operations on containers db attributes
 
-DbAtribute.db_atribute_set_dump_mode set dump_mode to True and call dump
+DbAttribute.db_attribute_set_dump_mode set dump_mode to True and call dump
 
-DbAtribute.db_atribute_set_undump_mode set dump_mode to False
+DbAttribute.db_attribute_set_undump_mode set dump_mode to False
 
 ```python
 user = User(id=1, any_db_data1=531, any_db_data2='string')
 print(user.__dict__)
-#{'id': 1, '_db_Atribute__dump_mode': True}
-user.db_atribute_set_undump_mode()
+#{'id': 1, '_db_Attribute__dump_mode': True}
+user.db_attribute_set_undump_mode()
 print(user.__dict__)
-#{'id': 1, 'any_db_data1': 531, 'any_db_data2': 'string', '_db_Atribute__dump_mode': True}
+#{'id': 1, 'any_db_data1': 531, 'any_db_data2': 'string', '_db_Attribute__dump_mode': True}
 ```
 
 ```python
 user = User(id=1, list_of_books=[])
-user.db_atribute_set_undump_mode()
+user.db_attribute_set_undump_mode()
 for i in range(10**5):
     user.list_of_books.append(i)
-user.db_atribute_set_dump_mode()
+user.db_attribute_set_dump_mode()
 ```
 
-if you need dump attributes to db with undump_mode, you can use DbAtribute.db_atribute_dump
+if you need dump attributes to db with undump_mode, you can use DbAttribute.db_attribute_dump
 
 ```python
 user = User(id=1, list_of_books=[])
-user.db_atribute_set_undump_mode()
+user.db_attribute_set_undump_mode()
 for i in range(10**4):
     user.list_of_books.append(i)
-user.db_atribute_dump() #dump the list_of_books to db
+user.db_attribute_dump() #dump the list_of_books to db
 for i in range(10**4):
     user.list_of_books.append(i)
-user.db_atribute_set_dump_mode()
+user.db_attribute_set_dump_mode()
 ```
 
 ## Types
@@ -218,20 +221,28 @@ print(obj.list_of_books.dumps())
 
 ### Json type
 
-db atribute support `tuple`, `list`, `dict`, other collections, but this types slow, because uses Db classes (see [speed test](#speed-test)).
+db attribute support `tuple`, `list`, `dict`, other collections, but this types slow, because uses Db classes (see [speed test](#speed-test)).
 
 to solve this problem, use a Json convertation
-```python
-from db_atribute.dbtypes import JsonType
 
-@dbDecorator(_db_Atribute__dbworkobj=*db work obj*)
+```python
+from db_attribute.dbtypes import JsonType
+
+
+@dbDecorator(_db_attribute__dbworkobj=*db
+
+
+work
+obj *)
+
 @dataclass
-class User(DbAtribute):
+class User(DbAttribute):
     sittings: JsonType = db_field()
 
+
 obj = User(1, sittings={1: 2, 3: [4, 5]})
-print(obj.sittings) #{'1': 2, '3': [4, 5]}
-print(type(obj.sittings)) #dict
+print(obj.sittings)  # {'1': 2, '3': [4, 5]}
+print(type(obj.sittings))  # dict
 ```
 but:
 1) if you change obj with JsonType, this obj don't dump to db, you need set the new obj
@@ -252,7 +263,7 @@ print(obj.sittings) #{'1': 3}
 `op/sec` - `operation/second`
 
 mysql `select` - `12500` op/sec </br>
-db_atribute `get_attr`:
+db_attribute `get_attr`:
 
 `int`:      11658 op/sec -6%<br>
 `str`:      11971 op/sec -4%<br>
@@ -262,7 +273,7 @@ db_atribute `get_attr`:
 `JsonType`: 11937 op/sec -4%<br>
 
 mysql `insert/update` - `4500` op/sec<br>
-db_atribute `set_attr`:
+db_attribute `set_attr`:
 
 `int`:      4552 op/sec +0%<br>
 `str`:      4341 op/sec -3% <br>

@@ -1,7 +1,8 @@
 import copy, ast, functools, inspect, sys
 import datetime
 import pickle
-import json as json
+import json
+import orjson
 import collections
 
 def MethodDecorator(func=None, /, convert_arguments=True, call_the_decoreted_func=False, call_update_obj=True):
@@ -52,20 +53,20 @@ def LoadDecorator(func=None, /, *, auto_step1=True, auto_step2=True, auto_step3=
     @classmethod
     @LoadDecorator(auto_step1=False)
     def func(cls, *args, **kwargs):
-        data, _obj_dbatribute, _name_atribute, _first_container = yield
+        data, _obj_dbattribute, _name_attribute, _first_container = yield
         self = cls.__new__(cls=cls, _use_db=True)
-        yield self, data, _obj_dbatribute, _name_atribute, _first_container
+        yield self, data, _obj_dbattribute, _name_attribute, _first_container
 
     realisation of DbDict:
     @classmethod
     @LoadDecorator(auto_step2=False, auto_step3=False)
     def loads(cls, *args, **kwargs):
-        self, data, _obj_dbatribute, _name_atribute, _first_container = yield
+        self, data, _obj_dbattribute, _name_attribute, _first_container = yield
         newdata = {convert_json_key_to_atr_key(key, data['dk'][key] if key in data['dk'] else None)
                 : conver_json_value_to_atr_value(value, data['dt'][key] if key in data['dt'] else None, _first_container=_first_container)
                 for key, value in data['d'].items()}
-        self.__init__(newdata, _use_db=True, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
-        yield data, _obj_dbatribute, _name_atribute, _first_container
+        self.__init__(newdata, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        yield data, _obj_dbattribute, _name_attribute, _first_container
 
     example for realisation step1+step3:
 
@@ -73,12 +74,12 @@ def LoadDecorator(func=None, /, *, auto_step1=True, auto_step2=True, auto_step3=
     @LoadDecorator(auto_step1=False, auto_step3=False)
     def func(cls, *args, **kwargs):
         #step1
-        data, _obj_dbatribute, _name_atribute, _first_container = yield
+        data, _obj_dbattribute, _name_attribute, _first_container = yield
         self = cls.__new__(cls=cls, _use_db=True)
-        self, newdata, _obj_dbatribute, _name_atribute, _first_container = yield self, data, _obj_dbatribute, _name_atribute, _first_container
-        #not 'yield self, data, _obj_dbatribute, _name_atribute, _first_container'
+        self, newdata, _obj_dbattribute, _name_attribute, _first_container = yield self, data, _obj_dbattribute, _name_attribute, _first_container
+        #not 'yield self, data, _obj_dbattribute, _name_attribute, _first_container'
         #step 3
-        self.__init__(newdata, _use_db=True, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+        self.__init__(newdata, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         yield
 
     example for realisation step1+step2:
@@ -87,36 +88,36 @@ def LoadDecorator(func=None, /, *, auto_step1=True, auto_step2=True, auto_step3=
     @LoadDecorator(auto_step1=False, auto_step2=False)
     def func(cls, *args, **kwargs):
         #step1
-        data, _obj_dbatribute, _name_atribute, _first_container = yield
+        data, _obj_dbattribute, _name_attribute, _first_container = yield
         self = cls.__new__(cls=cls, _use_db=True)
-        self, data, _obj_dbatribute, _name_atribute, _first_container = yield data, _obj_dbatribute, _name_atribute, _first_container
-        #or use 'not_used_data = yield data, _obj_dbatribute, _name_atribute, _first_container'
-        #or use 'yield data, _obj_dbatribute, _name_atribute, _first_container'
+        self, data, _obj_dbattribute, _name_attribute, _first_container = yield data, _obj_dbattribute, _name_attribute, _first_container
+        #or use 'not_used_data = yield data, _obj_dbattribute, _name_attribute, _first_container'
+        #or use 'yield data, _obj_dbattribute, _name_attribute, _first_container'
         #step2
         data = [conver_json_value_to_atr_value(value, data['dt'][str(key)] if str(key) in data['dt'] else None, _first_container=_first_container)
                 for key, value in enumerate(data['d'])]
-        yield data, _obj_dbatribute, _name_atribute, _first_container
+        yield data, _obj_dbattribute, _name_attribute, _first_container
 
     if any auto_step is True, decorator call step1|step2|step3 (this functions not decorator!)
 
     standart auto_step1:
-    def step1(cls, data, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
+    def step1(cls, data, _obj_dbattribute=None, _name_attribute=None, _first_container=None, *args, **kwargs):
         obj = cls.__new__(cls=cls, _use_db=True)
         if _first_container is None:
             _first_container = obj
-        return obj, data, _obj_dbatribute, _name_atribute, _first_container
+        return obj, data, _obj_dbattribute, _name_attribute, _first_container
 
     standart auto_step2:
-    def step2(cls, self, data, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
+    def step2(cls, self, data, _obj_dbattribute=None, _name_attribute=None, _first_container=None, *args, **kwargs):
         data = {key: conver_json_value_to_atr_value(value, data['dt'][key] if key in data['dt'] else None, _first_container=_first_container)
                 for key, value in data['d'].items()}
-        return data, _obj_dbatribute, _name_atribute, _first_container
+        return data, _obj_dbattribute, _name_attribute, _first_container
 
     standart auto_step3:
-    def step3(cls, self, data, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
-        self.__init__(**data, _use_db=True, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+    def step3(cls, self, data, _obj_dbattribute=None, _name_attribute=None, _first_container=None, *args, **kwargs):
+        self.__init__(**data, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
-    *for args in steps: other args is _obj_dbatribute, _name_atribute, _first_container*
+    *for args in steps: other args is _obj_dbattribute, _name_attribute, _first_container*
 
     :param func:
     :param auto_step1: step, where create obj (no init, only __new__) (and replace _first_container if is None). call for 2nd step: (data: json, *other args*), send back: (self (this obj | cls.__new__), data: json, *other args*)
@@ -127,22 +128,22 @@ def LoadDecorator(func=None, /, *, auto_step1=True, auto_step2=True, auto_step3=
     :param step3: if you don't use auto_step1, tou can replace step1 function
     :return:
     """
-    def standart_step1(cls, data, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
+    def standart_step1(cls, data, _obj_dbattribute=None, _name_attribute=None, _first_container=None, *args, **kwargs):
         obj = cls.__new__(cls, _use_db=True)
         if _first_container is None:
             _first_container = obj
-        return obj, data, _obj_dbatribute, _name_atribute, _first_container
+        return obj, data, _obj_dbattribute, _name_attribute, _first_container
 
-    def standart_step2(cls, self, data, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
+    def standart_step2(cls, self, data, _obj_dbattribute=None, _name_attribute=None, _first_container=None, *args, **kwargs):
         data = {key: conver_json_value_to_atr_value(value, _first_container=_first_container)
                 for key, value in data['d'].items()}
-        return data, _obj_dbatribute, _name_atribute, _first_container
+        return data, _obj_dbattribute, _name_attribute, _first_container
 
-    def standart_step3(cls, self, data, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
-        self.__init__(**data, _use_db=True, _cheak_data=False, _copy_data=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+    def standart_step3(cls, self, data, _obj_dbattribute=None, _name_attribute=None, _first_container=None, *args, **kwargs):
+        self.__init__(**data, _use_db=True, _cheak_data=False, _copy_data=False, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     def wrap(func):
-        def metode_func(cls, s: str, _obj_dbatribute=None, _name_atribute=None, _first_container=None, *args, **kwargs):
+        def metode_func(cls, s: str, _obj_dbattribute=None, _name_attribute=None, _first_container=None, *args, **kwargs):
             generator = func(cls, *args, **kwargs)
             first_run = True
             if isinstance(s, str):
@@ -154,35 +155,35 @@ def LoadDecorator(func=None, /, *, auto_step1=True, auto_step2=True, auto_step3=
 
             if auto_step1:
                 if step1:
-                    self, tempdata, _obj_dbatribute, _name_atribute, _first_container = step1(cls, tempdata, _obj_dbatribute, _name_atribute, _first_container)
+                    self, tempdata, _obj_dbattribute, _name_attribute, _first_container = step1(cls, tempdata, _obj_dbattribute, _name_attribute, _first_container)
                 else:
-                    self, tempdata, _obj_dbatribute, _name_atribute, _first_container = standart_step1(cls, tempdata, _obj_dbatribute, _name_atribute, _first_container)
+                    self, tempdata, _obj_dbattribute, _name_attribute, _first_container = standart_step1(cls, tempdata, _obj_dbattribute, _name_attribute, _first_container)
             else:
                 if first_run:
                     next(generator)
                     first_run = False
-                self, tempdata, _obj_dbatribute, _name_atribute, _first_container = generator.send((tempdata, _obj_dbatribute, _name_atribute, _first_container))
+                self, tempdata, _obj_dbattribute, _name_attribute, _first_container = generator.send((tempdata, _obj_dbattribute, _name_attribute, _first_container))
 
             if auto_step2:
                 if step2:
-                    data, _obj_dbatribute, _name_atribute, _first_container = step2(cls, self, tempdata, _obj_dbatribute, _name_atribute, _first_container)
+                    data, _obj_dbattribute, _name_attribute, _first_container = step2(cls, self, tempdata, _obj_dbattribute, _name_attribute, _first_container)
                 else:
-                    data, _obj_dbatribute, _name_atribute, _first_container = standart_step2(cls, self, tempdata, _obj_dbatribute, _name_atribute, _first_container)
+                    data, _obj_dbattribute, _name_attribute, _first_container = standart_step2(cls, self, tempdata, _obj_dbattribute, _name_attribute, _first_container)
             else:
                 if first_run:
                     next(generator)
                     first_run = False
-                data, _obj_dbatribute, _name_atribute, _first_container = generator.send((self, tempdata, _obj_dbatribute, _name_atribute, _first_container))
+                data, _obj_dbattribute, _name_attribute, _first_container = generator.send((self, tempdata, _obj_dbattribute, _name_attribute, _first_container))
 
             if auto_step3:
                 if step3:
-                    step3(cls, self, data, _obj_dbatribute, _name_atribute, _first_container)
+                    step3(cls, self, data, _obj_dbattribute, _name_attribute, _first_container)
                 else:
-                    standart_step3(cls, self, data, _obj_dbatribute, _name_atribute, _first_container)
+                    standart_step3(cls, self, data, _obj_dbattribute, _name_attribute, _first_container)
             else:
                 if first_run:
                     next(generator)
-                generator.send((self, data, _obj_dbatribute, _name_atribute, _first_container))
+                generator.send((self, data, _obj_dbattribute, _name_attribute, _first_container))
             return self
         return metode_func
     if func is None:
@@ -222,8 +223,8 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
                 convert_arguments = True
             def wrapper(self, *args, _update=True, **kwargs):
                 if convert_arguments:
-                    args = (cheaker.create_db_class(i, _first_container=self._first_container if self._first_container else _FirstContainer(self)) for i in args)
-                    kwargs = {key: cheaker.create_db_class(kwargs[key], _first_container=self._first_container if self._first_container else _FirstContainer(self)) for key in kwargs}
+                    args = (cheaker.create_db_class(i, _first_container=self._first_container) for i in args)
+                    kwargs = {key: cheaker.create_db_class(kwargs[key], _first_container=self._first_container) for key in kwargs}
 
                 obj = truefunc(self, *args, **kwargs)
                 if _update and isinstance(obj, DbClass):
@@ -237,8 +238,8 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
                 convert_arguments = True
             def wrapper(self, *args, _update=True, **kwargs):
                 if convert_arguments:
-                    args = (cheaker.create_db_class(i, _first_container=self._first_container if self._first_container else _FirstContainer(self)) for i in args)
-                    kwargs = {key: cheaker.create_db_class(kwargs[key], _first_container=self._first_container if self._first_container else _FirstContainer(self)) for key in kwargs}
+                    args = (cheaker.create_db_class(i, _first_container=self._first_container) for i in args)
+                    kwargs = {key: cheaker.create_db_class(kwargs[key], _first_container=self._first_container) for key in kwargs}
 
                 data = truefunc(self, *args, **kwargs)
                 if _update: self._update_obj()
@@ -265,28 +266,23 @@ class _FirstContainer:
 @DbClassDecorator
 class DbClass:
     _standart_class = object
-    _obj_dbatribute = None
-    _name_atribute = None
+    _obj_dbattribute = None
+    _name_attribute = None
     _first_container = None
     _call_init_when_reconstruct = False
 
-    def __new__(cls, *args, _use_db=False, _obj_dbatribute=None, _convert_arguments=True, _name_atribute=None, _first_container=None, **kwargs):
+    def __new__(cls, *args, _use_db=False, _obj_dbattribute=None, _convert_arguments=True, _name_attribute=None, _first_container=None, **kwargs):
         if not _use_db:
             obj = cls._standart_class.__new__(cls._standart_class, *args, **kwargs)
             obj.__init__(*args, **kwargs)
             return obj
         return cls._standart_class.__new__(cls, *args, **kwargs)
 
-    def __init__(self, *args, _call_super_init=True, _use_db=False, _obj_dbatribute=None, _convert_arguments=True, _name_atribute=None, _first_container=None, **kwargs):
-        """
-        set _obj_dbatribute, _name_atribute, _first_container, call super().__init__(*args, **kwargs)
-        if _convert_arguments is True, convert all atributes from args and kwargs to DbClass for super().__init__(*args, **kwargs)
-        :param _call_super_init: (this parametr only for call DbClass __init__, don't use it for your class __init__) if True, the DbClass.__init__ call super().__init__(*args, **kwargs)
-        """
-        if _obj_dbatribute:
-            self.__dict__['_obj_dbatribute'] = _obj_dbatribute
-        if _name_atribute:
-            self.__dict__['_name_atribute'] = _name_atribute
+    def __init__(self, *args, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+        if _obj_dbattribute:
+            self.__dict__['_obj_dbattribute'] = _obj_dbattribute
+        if _name_attribute:
+            self.__dict__['_name_attribute'] = _name_attribute
         if self._first_container is None:
             if _first_container is None:
                 self.__dict__['_first_container'] = _FirstContainer(self)
@@ -294,19 +290,12 @@ class DbClass:
                 if not isinstance(_first_container, _FirstContainer):
                     _first_container = _FirstContainer(_first_container)
                 self.__dict__['_first_container'] = _first_container
-        if _call_super_init and _convert_arguments:
-            if not isinstance(_first_container, _FirstContainer):
-                _first_container = _FirstContainer(_first_container)
-            args = (cheaker.create_db_class(i, _first_container=self._first_container) for i in args)
-            kwargs = {key: cheaker.create_db_class(kwargs[key], _first_container=self._first_container) for key in kwargs}
-        if _call_super_init:
-            super().__init__(*args, **kwargs)
 
     def __reduce_ex__(self, protocol):
         temp = super().__reduce_ex__(protocol)
         if len(temp) >= 3 and temp[2] is not None:
             temp = list(temp)
-            temp[2] = {key: convert_atr_value_to_json_value(temp[2][key]) for key in temp[2] if key not in {'_obj_dbatribute', '_name_atribute', '_first_container'}}
+            temp[2] = {key: convert_atr_value_to_json_value(temp[2][key]) for key in temp[2] if key not in {'_obj_dbattribute', '_name_attribute', '_first_container'}}
             if len(temp[2]) == 0:
                 temp[2] = None
             temp = tuple(temp)
@@ -314,8 +303,8 @@ class DbClass:
 
     def _update_obj(self):
         #print(f'update {self} {self._first_container.container if self._first_container else self._first_container}')
-        if self._first_container and self._first_container.container and self._first_container.container._obj_dbatribute:
-            self._first_container.container._obj_dbatribute._db_atribute_container_update(self._first_container.container._name_atribute, self._first_container.container)
+        if self._first_container and self._first_container.container and self._first_container.container._obj_dbattribute:
+            self._first_container.container._obj_dbattribute._db_attribute_container_update(self._first_container.container._name_attribute, self._first_container.container)
 
     def dumps(self, _return_json=True):
         """
@@ -333,11 +322,11 @@ class DbClass:
         return {'t': self.__class__.__name__, 'd': data}
 
     @classmethod
-    def loads(cls, tempdata: str | dict, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+    def loads(cls, tempdata: str | dict, *, _call_the_super=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         """
         if you create loads methode in tour 'Db class', type(tempdata) is dict (not str)
         please, in first line write:
-        'if _call_the_super: return super().loads(tempdata, _call_the_super=_call_the_super, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)'
+        'if _call_the_super: return DbClass.loads(tempdata, _call_the_super=_call_the_super, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)'
         because
         1) the DbClass.loads call the loads func if the tempdata['t'] is your class
         example: your class is 'DbMyClass', but tempdata is {'t': 'DbOtherClass', ...},
@@ -351,37 +340,39 @@ class DbClass:
 
         :param tempdata: the dumps obj, example: tempdata = {'t': DbList, 'd': [1, 2, 3]}, or json.loads(tempdata) = {'t': DbList, 'd': [1, 2, 3]}
         :param _call_the_super: uses, when the DbClass call the loads func from tempdata['t'] (cls of dumps obj)
-        :param _obj_dbatribute: link to dbatribute obj
-        :param _name_atribute: name this atribute
+        :param _obj_dbattribute: link to dbattribute obj
+        :param _name_attribute: name this attribute
         :param _first_container: link to 'first container', example: a = [1, [2]] for [2] the 'first container' the [1, [2]]
         :return:
         """
         if isinstance(tempdata, str):
-            temp = json.loads(tempdata)
-        else:
-            temp = tempdata
-        if (not isinstance(temp, dict)) or 't' not in temp:
+            tempdata = orjson.loads(tempdata)
+        if (not isinstance(tempdata, dict)) or 't' not in tempdata:
             raise Exception(
-                f"load error: {temp} is not dict or don't have the 't' key"
+                f"load error: {tempdata} is not dict or don't have the 't' key"
             )
-        if temp['t'] not in cheaker.db_class_name_to_db_class:
+        if tempdata['t'] not in cheaker.db_class_name_to_db_class:
             raise Exception(
-                f"load error: cheaker don't support the {temp['t']}, add this class to cheaker"
+                f"load error: cheaker don't support the {tempdata['t']}, add this class to cheaker"
             )
-        loadcls = cheaker.db_class_name_to_db_class[temp['t']]
+        loadcls = cheaker.db_class_name_to_db_class[tempdata['t']]
         if loadcls.__dict__.get('loads', None):
-            return loadcls.loads(temp, _call_the_super=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
-        return cheaker.create_db_class(pickle.loads(temp['d'].encode('latin1')), _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+            return loadcls.loads(tempdata, _call_the_super=False, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        return cheaker.create_db_class(pickle.loads(tempdata['d'].encode('latin1')), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator(list_of_methodes_with_converted_arguments=['__iadd__'])
 class DbList(DbClass, list):
-    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
-        super().__init__(*args, _call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
+    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         iterable = list(args[0])
 
         if _convert_arguments:
             iterable = [cheaker.create_db_class(i, _first_container=self._first_container) for i in iterable]
         list.__init__(self, iterable)
+
+    @classmethod
+    def __convert_obj__(cls, obj: list, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     @MethodDecorator
     def append(self, item, /): pass
@@ -407,21 +398,21 @@ class DbList(DbClass, list):
         return {'t': self.__class__.__name__, 'd': data}
 
     @classmethod
-    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if _call_the_super: return DbClass.loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         obj = cls.__new__(cls, _use_db=True)
         if _first_container is None:
             _first_container = _FirstContainer(obj)
         data = [conver_json_value_to_atr_value(value, _first_container=_first_container) for value in tempdata['d']]
-        obj.__init__(data, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+        obj.__init__(data, _convert_arguments=False, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         return obj
 
 @DbClassDecorator(list_of_methodes_with_converted_arguments=['__ior__', '__iand__'])
 class DbSet(DbClass, set):
     _call_init_when_reconstruct = True
 
-    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
-        super().__init__(*args, _call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
+    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         iterable = set(args[0])
         if _convert_arguments:
             iterable = {cheaker.create_db_class(i, _first_container=self._first_container) for i in iterable}
@@ -429,6 +420,10 @@ class DbSet(DbClass, set):
 
     def __repr__(self):
         return set(self).__repr__()
+
+    @classmethod
+    def __convert_obj__(cls, obj: set, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     @MethodDecorator
     def add(self, __element, /): pass
@@ -452,23 +447,27 @@ class DbSet(DbClass, set):
         return {'t': self.__class__.__name__, 'd': data}
 
     @classmethod
-    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if _call_the_super: return DbClass.loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         obj = cls.__new__(cls, _use_db=True)
         if _first_container is None:
             _first_container = _FirstContainer(obj)
         data = {conver_json_value_to_atr_value(value, _first_container=_first_container) for value in tempdata['d']}
-        obj.__init__(data, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+        obj.__init__(data, _convert_arguments=False, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         return obj
 
 @DbClassDecorator(list_of_methodes_with_converted_arguments=['__ior__'])
 class DbDict(DbClass, dict):
-    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
-        super().__init__(*args, _call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
+    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         iterable = dict(args[0]) | kwargs
         if _convert_arguments:
             iterable = {key: cheaker.create_db_class(iterable[key], _first_container=self._first_container) for key in iterable}
         dict.__init__(self, iterable)
+
+    @classmethod
+    def __convert_obj__(cls, obj: dict, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     @MethodDecorator
     def clear(self): pass
@@ -487,23 +486,23 @@ class DbDict(DbClass, dict):
         return {'t': self.__class__.__name__, 'dk': data_key, 'd': data}
 
     @classmethod
-    def loads(cls, tempdata, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+    def loads(cls, tempdata, *, _call_the_super=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if _call_the_super: return DbClass.loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         obj = cls.__new__(cls, _use_db=True)
         if _first_container is None:
             _first_container = _FirstContainer(obj)
         data = {convert_json_key_to_atr_key(key, tempdata['dk'][key] if key in tempdata['dk'] else None)
                 : conver_json_value_to_atr_value(value, _first_container=_first_container)
                 for key, value in tempdata['d'].items()}
-        obj.__init__(data, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+        obj.__init__(data, _convert_arguments=False, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         return obj
 
 @DbClassDecorator
 class DbTuple(DbClass, tuple):
     _call_init_when_reconstruct = True
-    def __new__(cls, *args, _use_db=False, _loads_iterable=False, _obj_dbatribute=None, _convert_arguments=True, _name_atribute=None, _first_container=None, **kwargs):
+    def __new__(cls, *args, _use_db=False, _loads_iterable=False, _obj_dbattribute=None, _convert_arguments=True, _name_attribute=None, _first_container=None, **kwargs):
         if not _use_db:
-            return DbClass.__new__(DbTuple, *args, **kwargs)
+            return tuple.__new__(DbTuple, *args, **kwargs)
 
         if _first_container is None:
             _first_container = _FirstContainer()
@@ -520,14 +519,18 @@ class DbTuple(DbClass, tuple):
         obj.__dict__['_first_container'] = _first_container
         return obj
 
-    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
-        super().__init__(*args, _call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
+    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     def __iadd__(self, other):
-        obj = self.__class__(self.__add__(other), _use_db=True, _obj_dbatribute=self._obj_dbatribute, _name_atribute=self._name_atribute, _first_container=self._first_container)
+        obj = self.__class__(self.__add__(other), _use_db=True, _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self:
             obj.__dict__['_first_container'].container = obj
         return obj
+
+    @classmethod
+    def __convert_obj__(cls, obj: tuple, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     def dumps(self, _return_json=True):
         data = [convert_atr_value_to_json_value(i) for i in self]
@@ -536,10 +539,10 @@ class DbTuple(DbClass, tuple):
         return {'t': self.__class__.__name__, 'd': data}
 
     @classmethod
-    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
-        obj = cls.__new__(cls, tempdata['d'], _use_db=True, _loads_iterable=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
-        obj.__init__(_convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if _call_the_super: return DbClass.loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        obj = cls.__new__(cls, tempdata['d'], _use_db=True, _loads_iterable=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        obj.__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         return obj
 
 @DbClassDecorator
@@ -550,29 +553,29 @@ class DbDeque(DbClass, collections.deque): pass
 
 @DbClassDecorator
 class DbDatetime(DbClass, datetime.datetime):
-    def __init__(self, year, month=None, day=None, hour=0, minute=0, second=0, microsecond=0, tzinfo=None, *, fold=0, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
-        super().__init__(_call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
+    def __init__(self, year, month=None, day=None, hour=0, minute=0, second=0, microsecond=0, tzinfo=None, *, fold=0, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, **kwargs)
     def __iadd__(self, other):
-        obj = cheaker.create_db_class(self.__add__(other), _obj_dbatribute=self._obj_dbatribute, _name_atribute=self._name_atribute, _first_container=self._first_container)
+        obj = cheaker.create_db_class(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
         return obj
     def __isub__(self, other):
-        obj = cheaker.create_db_class(self.__sub__(other), _obj_dbatribute=self._obj_dbatribute, _name_atribute=self._name_atribute, _first_container=self._first_container)
+        obj = cheaker.create_db_class(self.__sub__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
         return obj
 
     @classmethod
-    def __convert_obj__(cls, obj: datetime.datetime, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        return cls(year=obj.year, month=obj.month, day=obj.day, hour=obj.hour, minute=obj.minute, second=obj.second, microsecond=obj.microsecond, tzinfo=obj.tzinfo, fold=obj.fold, _use_db=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+    def __convert_obj__(cls, obj: datetime.datetime, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        return cls(year=obj.year, month=obj.month, day=obj.day, hour=obj.hour, minute=obj.minute, second=obj.second, microsecond=obj.microsecond, tzinfo=obj.tzinfo, fold=obj.fold, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     def dumps(self, _return_json=True):
         if _return_json: return json.dumps({'t': self.__class__.__name__, 'd': self.isoformat()})
         return {'t': self.__class__.__name__, 'd': self.isoformat()}
 
     @classmethod
-    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
-        return cheaker.create_db_class(cls.fromisoformat(tempdata['d']), _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if _call_the_super: return DbClass.loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        return cls.__convert_obj__(cls.fromisoformat(tempdata['d']), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator
 class DbDate(DbClass, datetime.date): pass
@@ -582,16 +585,16 @@ class DbTime(DbClass, datetime.time): pass
 
 @DbClassDecorator
 class DbTimedelta(DbClass, datetime.timedelta):
-    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None, **kwargs):
-        super().__init__(*args, _call_super_init=False, _use_db=_use_db, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container, **kwargs)
+    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+        super().__init__(*args, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, **kwargs)
 
     def dumps(self, _return_json=True):
         if _return_json: return json.dumps({'t': self.__class__.__name__, 'd': self.total_seconds()})
         return {'t': self.__class__.__name__, 'd': self.total_seconds()}
 
     @classmethod
-    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if _call_the_super: return DbClass.loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         return cls(seconds=tempdata['d'], _use_db=True, _first_container=_first_container)
 
 class Cheaker:
@@ -647,22 +650,22 @@ class Cheaker:
         del self.class_name_to_db_class[name_clasic_class]
         del self.db_class_name_to_clasic_class[name_db_class]
 
-    def create_any_db_classes(self, *objs, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+    def create_any_db_classes(self, *objs, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         """
         Use for create db_class from other classes. example: from list to DbList, but from int to int.
         :param objs: example: [123, '535', {8, 4, 6} #it's set , {1: 2} # it's dict]
-        :param _obj_dbatribute:
+        :param _obj_dbattribute:
         :return: example: [123, '535', {8, 4, 6} #it's DbSet , {1: 2} # it's DbDict]
         """
-        return [self.create_db_class(objs[i], _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container) for i in range(len(objs))]
+        return [self.create_db_class(objs[i], _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container) for i in range(len(objs))]
 
-    def create_db_class(self, obj, *, atribute_type=None, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        if (atribute_type is None and type(obj) in self._db_classes) or (atribute_type in self._db_classes):
-            if atribute_type is None:
-                atribute_type = type(obj)
-            cls = self._db_classes[atribute_type]
+    def create_db_class(self, obj, *, attribute_type=None, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if (attribute_type is None and type(obj) in self._db_classes) or (attribute_type in self._db_classes):
+            if attribute_type is None:
+                attribute_type = type(obj)
+            cls = self._db_classes[attribute_type]
             if hasattr(cls, '__convert_obj__'):
-                return cls.__convert_obj__(obj, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+                return cls.__convert_obj__(obj, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
             reductor = getattr(obj, "__reduce_ex__", None)
             if reductor is not None:
                 rv = reductor(4)
@@ -684,17 +687,17 @@ class Cheaker:
                 rv[1] = (1,) + rv[1]
             rv[1] = (cls,) + rv[1][1:]
             #print(f'{_first_container=}', rv[1], '|', [i for i in copy.deepcopy(rv[3])] if len(rv) >= 4 and rv[3] else None)
-            obj = self._reconstruct(*rv,  _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+            obj = self._reconstruct(*rv,  _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         return obj
 
-    def _reconstruct(self, func, args, state=None, listiter=None, dictiter=None, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-        y = func(*args, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+    def _reconstruct(self, func, args, state=None, listiter=None, dictiter=None, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        y = func(*args, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         if _first_container is None:
             _first_container = _FirstContainer(y)
         if y.__dict__.get('_first_container', None) is None:
             y.__dict__['_first_container'] = _first_container
         if y._call_init_when_reconstruct:
-            y.__init__(*args[1:], _obj_dbatribute=None, _name_atribute=None, _first_container=None)
+            y.__init__(*args[1:], _obj_dbattribute=None, _name_attribute=None, _first_container=None)
         if state is not None:
             if hasattr(y, '__setstate__'):
                 y.__setstate__(state)
@@ -717,10 +720,10 @@ class Cheaker:
             for key, value in dictiter:
                 y[key] = self.create_db_class(value, _first_container=_first_container)
         temp = {'_first_container': _first_container}
-        if _obj_dbatribute:
-            temp['_obj_dbatribute'] = _obj_dbatribute
-        if _name_atribute:
-            temp['_name_atribute'] = _name_atribute
+        if _obj_dbattribute:
+            temp['_obj_dbattribute'] = _obj_dbattribute
+        if _name_attribute:
+            temp['_name_attribute'] = _name_attribute
         if hasattr(y, '__dict__'):
             y.__dict__.update(temp)
         else:
@@ -733,23 +736,23 @@ class Cheaker:
             return obj in self._db_classes
         return type(obj) in self._db_classes
 
-    def this_db_atribute_support_class(self, obj, this_is_cls=False):
+    def this_db_attribute_support_class(self, obj, this_is_cls=False):
         if this_is_cls:
             return obj in self._db_classes.values()
         return type(obj) in self._db_classes.values()
 
-def __newobj_ex__(cls, args, kwargs, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-    return cls.__new__(cls, *args, *kwargs, _use_db=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
-def __newobj__(cls, *args, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
-    obj = cls.__new__(cls, *args, _use_db=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+def __newobj_ex__(cls, args, kwargs, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+    return cls.__new__(cls, *args, *kwargs, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+def __newobj__(cls, *args, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+    obj = cls.__new__(cls, *args, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
     return obj
 
 def convert_atr_value_to_json_value(value):
-    return value.dumps(_return_json=False) if cheaker.this_db_atribute_support_class(value) else value
+    return value.dumps(_return_json=False) if cheaker.this_db_attribute_support_class(value) else value
 
-def conver_json_value_to_atr_value(value, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
+def conver_json_value_to_atr_value(value, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
     if type(value) == dict:
-        return DbClass.loads(value, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
+        return DbClass.loads(value, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
     return value
 
 def convert_atr_key_to_json_key(key):

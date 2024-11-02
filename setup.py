@@ -12,11 +12,11 @@ with open('requirements.txt') as f:
     required = f.read().splitlines()
 
 setup(
-    name='db_atribute',
+    name='db_attribute',
     version='1.2',
     description='DataBase atribute package',
     long_description=long_description,
-    url='https://github.com/shutkanos/Db-Atribute',
+    url='https://github.com/shutkanos/Db-Attribute',
 
     author='Shutkanos',
     author_email='Shutkanos836926@mail.ru',
@@ -33,7 +33,7 @@ setup(
         'Programming Language :: Python :: 3',
     ],
 
-    keywords='db datebase atribute dbatribute db_atribute databaseatribute auto_atribute',
+    keywords='db datebase attribute dbattribute db_attribute databaseattribute auto_attribute',
     packages=find_packages(),
 
     install_requires=required,
