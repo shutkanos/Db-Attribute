@@ -155,44 +155,54 @@ print(obj.name) #Anna
 
 ### Dump_mode
 
-if in any function you will work with obj, you can activate undump_mode,
+if in any function you will work with obj, you can activate manual_dump_mode (auto_dump_mode is default),
 
-*dump_mode*: attributes don't save in self.__dict__, all changes automatic dump in db.
+`auto_dump_mode`: attributes don't save in self.__dict__, all changes automatic dump in db.
 
-*undump_mode*: all attributes save in self.__dict__, and won't dump in db until self.db_attribute_set_dump_mode is called. this helps to quickly perform operations on containers db attributes
+`manual_dump_mode`: attributes save in self.__dict__, and won't dump in db until self.db_attribute_set_dump_mode is called. this helps to quickly perform operations on containers db attributes
 
-DbAttribute.db_attribute_set_dump_mode set dump_mode to True and call dump
+DbAttribute.db_attribute_set_auto_dump_mode set auto_dump_mode and call dump
 
-DbAttribute.db_attribute_set_undump_mode set dump_mode to False
+DbAttribute.db_attribute_set_manual_dump_mode set manual_dump_mode
 
 ```python
 user = User(id=1, any_db_data1=531, any_db_data2='string')
 print(user.__dict__)
-#{'id': 1, '_db_Attribute__dump_mode': True}
-user.db_attribute_set_undump_mode()
+# {'id': 1}
+user.db_attribute_set_manual_dump_mode()
 print(user.__dict__)
-#{'id': 1, 'any_db_data1': 531, 'any_db_data2': 'string', '_db_Attribute__dump_mode': True}
+# {'id': 1, 'any_db_data1': 531, 'any_db_data2': 'string'}
+```
+or set dump mod for individual attributes
+
+```python
+user = User(id=1, any_db_data1=531, any_db_data2='string')
+print(user.__dict__)
+# {'id': 1}
+user.db_attribute_set_manual_dump_mode({'any_db_data1'})
+print(user.__dict__)
+# {'id': 1, 'any_db_data1': 531}
 ```
 
 ```python
 user = User(id=1, list_of_books=[])
-user.db_attribute_set_undump_mode()
-for i in range(10**5):
+user.db_attribute_set_manual_dump_mode()
+for i in range(10 ** 5):
     user.list_of_books.append(i)
-user.db_attribute_set_dump_mode()
+user.db_attribute_set_auto_dump_mode()
 ```
 
-if you need dump attributes to db with undump_mode, you can use DbAttribute.db_attribute_dump
+if you need dump attributes to db with manual_dump_mode, you can use DbAttribute.db_attribute_dump
 
 ```python
 user = User(id=1, list_of_books=[])
-user.db_attribute_set_undump_mode()
-for i in range(10**4):
+user.db_attribute_set_manual_dump_mode()
+for i in range(10 ** 4):
     user.list_of_books.append(i)
-user.db_attribute_dump() #dump the list_of_books to db
-for i in range(10**4):
+user.db_attribute_dump()  # dump the list_of_books to db
+for i in range(10 ** 4):
     user.list_of_books.append(i)
-user.db_attribute_set_dump_mode()
+user.db_attribute_set_auto_dump_mode()
 ```
 
 ## Types
@@ -259,18 +269,18 @@ db_attribute `get_attr`:
 `int`:      11658 op/sec -6%<br>
 `str`:      11971 op/sec -4%<br>
 `tuple`:    9685 op/sec -22%<br>
-`list`:     9161 op/sec -26%<br>
-`dict`:     9311 op/sec -25%<br>
+`list`:     9630 op/sec -23%<br>
+`dict`:     9545 op/sec -23%<br>
 `JsonType`: 11937 op/sec -4%<br>
 
 mysql `insert/update` - `4500` op/sec<br>
 db_attribute `set_attr`:
 
-`int`:      4552 op/sec +0%<br>
+`int`:      4221 op/sec -6%<br>
 `str`:      4341 op/sec -3% <br>
-`tuple`:    3419 op/sec -24%<br>
-`list`:     3271 op/sec -27%<br>
-`dict`:     3332 op/sec -25%<br>
+`tuple`:    3678 op/sec -18%<br>
+`list`:     3571 op/sec -20%<br>
+`dict`:     3506 op/sec -22%<br>
 `JsonType`: 4165 op/sec -7%<br>
 
 # Data base
