@@ -3,7 +3,7 @@ import json
 import orjson
 
 import db_attribute.db_class as db_class
-import db_attribute.dbtypes as dbtypes
+import db_attribute.db_types as dbtypes
 
 def convert_attribute_type_to_mysql_type(attribute_type, len_varchar=50):
     if attribute_type == str:

@@ -4,12 +4,12 @@ from dataclasses import MISSING
 
 import db_attribute.db_class as db_class
 import db_attribute.db_work as db_work
-import db_attribute.dbtypes as dbtypes
+import db_attribute.db_types as dbtypes
 
-__all__ = ['dbDecorator', 'db_field', 'DbAttribute', 'db_work', 'db_class', 'connector', 'dbtypes']
+__all__ = ['dbDecorator', 'db_field', 'DbAttribute', 'db_work', 'db_class', 'connector', 'db_types']
 __version__ = '1.2'
 
-def dbDecorator(cls=None, /, kw_only=False, _db_attribute__dbworkobj=None):
+def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
     def wrap(cls):
         if (('_db_attribute__dbworkobj' not in cls.__dict__) or cls._db_attribute__dbworkobj is None) and _db_attribute__dbworkobj is None:
             raise Exception('set _db_attribute__dbworkobj in class (_db_attribute__dbworkobj: ClassVar[list] = *dbwork obj*) or give dbwork obj to dbDecorator')

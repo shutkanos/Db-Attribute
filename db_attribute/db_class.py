@@ -211,11 +211,10 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
         list_of_methodes_with_converted_arguments = []
     def wrapper(cls):
         if cls.__dict__.get('_standart_class', None) is None:
-            if len(cls.__mro__) == 2 or (not issubclass(cls.__mro__[1], DbClass)):
-                cls._standart_class = cls.__mro__[1]
-            else:
-                cls._standart_class = cls.__mro__[2]
-            #print(cls, cls.__mro__, cls._standart_class)
+            ind = cls.__mro__.index(DbClass)
+            if ind + 1 == len(cls.__mro__):
+                raise f'The DbClass the last in {cls}.__mro__, please set _standart_class, or add perent to class'
+            cls._standart_class = cls.__mro__[ind + 1]
 
         def getimethod(truefunc, namefunc=''):
             convert_arguments = convert_arguments_ioperation_methodes
@@ -578,10 +577,54 @@ class DbDatetime(DbClass, datetime.datetime):
         return cls.__convert_obj__(cls.fromisoformat(tempdata['d']), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator
-class DbDate(DbClass, datetime.date): pass
+class DbDate(DbClass, datetime.date):
+    def __init__(self, year, month=None, day=None, *, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+        super().__init__(year=year, month=month, day=day, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, **kwargs)
+    def __iadd__(self, other):
+        obj = cheaker.create_db_class(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
+        if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
+        return obj
+    def __isub__(self, other):
+        obj = cheaker.create_db_class(self.__sub__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
+        if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
+        return obj
+    @classmethod
+    def __convert_obj__(cls, obj: datetime.datetime, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        return cls(year=obj.year, month=obj.month, day=obj.day, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+    def dumps(self, _return_json=True):
+        if _return_json: return json.dumps({'t': self.__class__.__name__, 'd': self.isoformat()})
+        return {'t': self.__class__.__name__, 'd': self.isoformat()}
+    @classmethod
+    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if _call_the_super: return DbClass.loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        return cls.__convert_obj__(cls.fromisoformat(tempdata['d']), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator
-class DbTime(DbClass, datetime.time): pass
+class DbTime(DbClass, datetime.time):
+    def __init__(self, hour=0, minute=0, second=0, microsecond=0, tzinfo=None, *, fold=0, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, **kwargs)
+
+    def __iadd__(self, other):
+        obj = cheaker.create_db_class(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
+        if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
+        return obj
+    def __isub__(self, other):
+        obj = cheaker.create_db_class(self.__sub__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
+        if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
+        return obj
+
+    @classmethod
+    def __convert_obj__(cls, obj: datetime.time, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        return DbTime(hour=obj.hour, minute=obj.minute, second=obj.second, microsecond=obj.microsecond, tzinfo=obj.tzinfo, fold=obj.fold, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+
+    def dumps(self, _return_json=True):
+        if _return_json: return json.dumps({'t': self.__class__.__name__, 'd': self.isoformat()})
+        return {'t': self.__class__.__name__, 'd': self.isoformat()}
+    @classmethod
+    def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if _call_the_super: return DbClass.loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        return cls.__convert_obj__(cls.fromisoformat(tempdata['d']), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+
 
 @DbClassDecorator
 class DbTimedelta(DbClass, datetime.timedelta):
@@ -774,7 +817,7 @@ def convert_json_key_to_atr_key(key, type_key):
         return True if key == ' True ' else False
     return key
 
-cheaker = Cheaker({set: DbSet, list: DbList, dict: DbDict, tuple: DbTuple, datetime.datetime: DbDatetime, datetime.timedelta: DbTimedelta})
+cheaker = Cheaker({set: DbSet, list: DbList, dict: DbDict, tuple: DbTuple, datetime.datetime: DbDatetime, datetime.timedelta: DbTimedelta, datetime.date: DbDate, datetime.time: DbTime})
 
 if __name__ == "__main__":
     print(1)
@@ -969,4 +1012,21 @@ if __name__ == "__main__":
     if B != datetime.datetime(2024, 10, 23, 10, 13, 20) or type(B) is not DbDatetime:
         print('10.3.1 error:')
         print(B, type(B))
+    A = DbDate(2024, 11, 10, _use_db=True)
+    if A != datetime.date(2024, 11, 10) or type(A) is not DbDate:
+        print('10.4.1 error:')
+        print(A, type(A))
+    A = DbClass.loads(A.dumps())
+    if A != datetime.date(2024, 11, 10) or type(A) is not DbDate:
+        print('10.4.2 error:')
+        print(A, type(A))
+    A = DbTime(11, 15, 10, _use_db=True)
+    if A != datetime.time(11, 15, 10) or type(A) is not DbTime:
+        print('10.5.1 error:')
+        print(A, type(A))
+    A = DbClass.loads(A.dumps())
+    if A != datetime.time(11, 15, 10) or type(A) is not DbTime:
+        print('10.5.2 error:')
+        print(A, type(A))
+
 

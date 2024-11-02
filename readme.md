@@ -3,6 +3,23 @@ DbAttribute - Database Attribute
 
 This module allows you to save attributes of objects not in RAM, but in a database. the closest analogue is <a href='https://github.com/sqlalchemy/sqlalchemy'>SQLAlchemy</a>. Unlike SQLAlchemy, this module maximizes automatism, allowing the developer to focus on other details without worrying about working with the database.
 
+* [Supported types](#supported-types)
+* [How it used](#how-it-used)
+    * [Create class](#create-class)
+    * [Work with obj](#work-with-obj)
+        * [Create new obj / add obj do db](#create-new-obj--add-obj-do-db)
+        * [Found obj by id](#found-obj-by-id)
+        * [Found obj by other attributes](#found-obj-by-other-attributes)
+        * [Change attribute of obj](#change-attribute-of-obj)
+        * [Dump mode](#dump-mode)
+    * [Types](#types)
+        * [Db classes](#db-classes)
+        * [Json type](#json-type)
+* [Speed Test](#speed-test)
+  * [Get attr](#get-attr)
+  * [Set attr](#set-attr)
+* [Data base](#data-base)
+
 # Supported types
 
 This module supported standart types: `int`, `float`, `str`, `bool`, `None`, `tuple`, `list`, `set`, `dict`, `datetime`.
@@ -18,35 +35,7 @@ for any class with DbAttribute you need
 * Inheritance the `DbAttribute.DbAttribute`
 * Use `@dataclasses.dataclass`
 * Use `@DbAttribute.dbDecorator`
-* create any field for database
-* create `_db_attribute__list_db_attributes: typing.ClassVar[set]` with database fields names.
-
-with `_db_attribute__list_db_attributes`
-
-```python
-from dataclasses import dataclass, field
-from typing import ClassVar
-
-from db_attribute import dbDecorator, DbAttribute, db_work, connector
-
-connect_obj = connector.Connection(host=*mysqlhost*, user=*user*, password=*password*, database=*databasename*)
-db_work_obj = db_work.Db_work(connect_obj)
-
-
-@dbDecorator(_db_attribute__dbworkobj=db_work_obj)
-@dataclass
-class User(DbAttribute):
-    other_dict_information: dict = field(default_factory=lambda: {})
-    name: str = 'NotSet'
-    age: int = -1
-    ban: bool = False
-    other_int_information: int = 100
-    list_of_books: list = field(default_factory=lambda: [])
-    sittings: dict = field(default_factory=lambda: {})
-    _db_attribute__list_db_attributes: ClassVar[set] = {'name', 'age', 'ban', 'list_of_books', 'sittings'}
-```
-
-without `_db_attribute__list_db_attributes` (automatic created)
+* create any fields and db_fields for database
 
 ```python
 from dataclasses import dataclass, field
@@ -56,16 +45,15 @@ from db_attribute import dbDecorator, DbAttribute, db_field, db_work, connector
 connect_obj = connector.Connection(host=*mysqlhost*, user=*user*, password=*password*, database=*databasename*)
 db_work_obj = db_work.Db_work(connect_obj)
 
-
 @dbDecorator(_db_attribute__dbworkobj=db_work_obj)
 @dataclass
 class User(DbAttribute):
-    other_dict_information: dict = field(default_factory=lambda: {})
+    other_dict_information: dict = field(default_factory=lambda: {}) #not save in db, only in RAM
     name: str = db_field(default='NotSet')
     age: int = db_field(default=-1)
     ban: bool = db_field(default=False)
-    other_int_information: int = 100
-    list_of_books: list = db_field(default_factory=lambda: [])
+    other_int_information: int = 100 #not save in db, only in RAM
+    list_of_books: list = db_field(default_factory=lambda: ['name of first book'])
     sittings: dict = db_field(default_factory=lambda: {})
 ```
 
@@ -153,7 +141,7 @@ print(obj.sittings[0]) #Any name of book
 print(obj.name) #Anna
 ```
 
-### Dump_mode
+### Dump mode
 
 if in any function you will work with obj, you can activate manual_dump_mode (auto_dump_mode is default),
 
@@ -234,12 +222,13 @@ db attribute support `tuple`, `list`, `dict`, other collections, but this types 
 to solve this problem, use a Json convertation
 
 ```python
-from db_attribute.dbtypes import JsonType
+from db_attribute.db_types import JsonType
 
 @dbDecorator(_db_attribute__dbworkobj=*db work obj*)
 @dataclass
 class User(DbAttribute):
     sittings: JsonType = db_field()
+
 
 obj = User(1, sittings={1: 2, 3: [4, 5]})
 print(obj.sittings)  # {'1': 2, '3': [4, 5]}
@@ -261,27 +250,37 @@ print(obj.sittings) #{'1': 3}
 
 # Speed Test
 
-`op/sec` - `operation/second`
+The execution speed may vary from computer to computer, so you need to focus on the specified number of operations per second of a regular mysql
 
-mysql `select` - `12500` op/sec </br>
-db_attribute `get_attr`:
+* mysql `select` - 12500 op/sec
+* mysql `insert/update` - 4500 op/sec<br>
 
-`int`:      11658 op/sec -6%<br>
-`str`:      11971 op/sec -4%<br>
-`tuple`:    9685 op/sec -22%<br>
-`list`:     9630 op/sec -23%<br>
-`dict`:     9545 op/sec -23%<br>
-`JsonType`: 11937 op/sec -4%<br>
+## Get attr
 
-mysql `insert/update` - `4500` op/sec<br>
-db_attribute `set_attr`:
+mysql `select` - 12500 op/sec
 
-`int`:      4221 op/sec -6%<br>
-`str`:      4341 op/sec -3% <br>
-`tuple`:    3678 op/sec -18%<br>
-`list`:     3571 op/sec -20%<br>
-`dict`:     3506 op/sec -22%<br>
-`JsonType`: 4165 op/sec -7%<br>
+Type      | Operation/seconds | How much slower is it
+----------|-------------------|---------------------------
+int       | 11658 op/sec      | -6%
+str       | 11971 op/sec      | -4%
+tuple     | 9685 op/sec       | -22%
+list      | 9630 op/sec       | -23%
+dict      | 9545 op/sec       | -23%
+JsonType  | 11937 op/sec      | -4%
+
+## Set attr
+
+other name: update attr<br>
+mysql `insert/update` - 4500 op/sec<br>
+
+Type      | Operation/seconds | How much slower is it
+----------|-------------------|---------------------------
+int       | 4221 op/sec       | -6%
+str       | 4341 op/sec       | -3%
+tuple     | 3678 op/sec       | -18%
+list      | 3571 op/sec       | -20%
+dict      | 3506 op/sec       | -22%
+JsonType  | 4165 op/sec       | -7%
 
 # Data base
 
