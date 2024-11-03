@@ -12,7 +12,7 @@ def convert_attribute_type_to_mysql_type(attribute_type, len_varchar=50):
         return {'status_code': 200, 'data': f'bigint'}
     if attribute_type == float or attribute_type == bool:
         return {'status_code': 200, 'data': attribute_type.__name__.upper()}
-    if db_class.cheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True) or attribute_type is dbtypes.JsonType:
+    if db_class.cheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True) or db_class.cheaker.this_support_class(attribute_type, this_is_cls=True) or attribute_type is dbtypes.JsonType:
         return {'status_code': 200, 'data': 'json'}
     return {'status_code': 300}
 
