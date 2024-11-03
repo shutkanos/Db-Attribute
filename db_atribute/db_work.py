@@ -8,7 +8,7 @@ def convert_atribute_type_to_mysql_type(atribute_type, len_varchar=50):
         return {'status_code': 200, 'data': f'varchar({len_varchar})'}
     if atribute_type in (int, float, bool):
         return {'status_code': 200, 'data': atribute_type.__name__.upper()}
-    if db_class.cheaker.this_db_atribute_support_class(atribute_type, this_is_cls=True):
+    if db_class.cheaker.this_db_atribute_support_class(atribute_type, this_is_cls=True) or db_class.cheaker.this_support_class(atribute_type, this_is_cls=True):
         return {'status_code': 200, 'data': 'json'}
     return {'status_code': 300}
 
