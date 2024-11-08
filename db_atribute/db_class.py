@@ -432,7 +432,7 @@ class DbSet(DbClass, set):
         if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         obj = cls.__new__(cls, _use_db=True)
         if _first_container is None:
-            _first_container = obj
+            _first_container = _FirstContainer(obj)
         data = {conver_json_value_to_atr_value(value, _first_container=_first_container) for value in tempdata['d']}
         obj.__init__(data, _convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
@@ -467,7 +467,7 @@ class DbDict(DbClass, dict):
         if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         obj = cls.__new__(cls, _use_db=True)
         if _first_container is None:
-            _first_container = obj
+            _first_container = _FirstContainer(obj)
         data = {convert_json_key_to_atr_key(key, tempdata['dk'][key] if key in tempdata['dk'] else None)
                 : conver_json_value_to_atr_value(value, _first_container=_first_container)
                 for key, value in tempdata['d'].items()}
@@ -485,7 +485,7 @@ class DbTuple(DbClass, tuple):
             _first_container = _FirstContainer()
 
         iterable = tuple(args[0])
-        if _convert_arguments:
+        if (not _loads_iterable) and _convert_arguments:
             iterable = tuple((cheaker.create_db_class(i, _first_container=_first_container) for i in iterable))
         if _loads_iterable:
             iterable = tuple((conver_json_value_to_atr_value(value, _first_container=_first_container) for value in iterable))
