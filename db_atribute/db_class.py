@@ -477,7 +477,7 @@ class DbDict(DbClass, dict):
 @DbClassDecorator
 class DbTuple(DbClass, tuple):
     _call_init_when_reconstruct = True
-    def __new__(cls, *args, _use_db=False, _obj_dbatribute=None, _convert_arguments=True, _name_atribute=None, _first_container=None, **kwargs):
+    def __new__(cls, *args, _use_db=False, _loads_iterable=False, _obj_dbatribute=None, _convert_arguments=True, _name_atribute=None, _first_container=None, **kwargs):
         if not _use_db:
             return DbClass.__new__(DbTuple, *args, **kwargs)
 
@@ -487,6 +487,8 @@ class DbTuple(DbClass, tuple):
         iterable = tuple(args[0])
         if _convert_arguments:
             iterable = tuple((cheaker.create_db_class(i, _first_container=_first_container) for i in iterable))
+        if _loads_iterable:
+            iterable = tuple((conver_json_value_to_atr_value(value, _first_container=_first_container) for value in iterable))
 
         obj = tuple.__new__(DbTuple, iterable)
         if _first_container.container is None:
@@ -499,7 +501,8 @@ class DbTuple(DbClass, tuple):
 
     def __iadd__(self, other):
         obj = self.__class__(self.__add__(other), _use_db=True, _obj_dbatribute=self._obj_dbatribute, _name_atribute=self._name_atribute, _first_container=self._first_container)
-        obj.__dict__['_first_container'].container = obj
+        if self._first_container.container is self:
+            obj.__dict__['_first_container'].container = obj
         return obj
 
     def dumps(self, _return_json=True):
@@ -511,7 +514,7 @@ class DbTuple(DbClass, tuple):
     @classmethod
     def loads(cls, tempdata: dict, *, _call_the_super=True, _obj_dbatribute=None, _name_atribute=None, _first_container=None):
         if _call_the_super: return super().loads(tempdata, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
-        obj = cls.__new__(cls, tempdata['d'], _use_db=True)
+        obj = cls.__new__(cls, tempdata['d'], _use_db=True, _loads_iterable=True, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         obj.__init__(_convert_arguments=False, _obj_dbatribute=_obj_dbatribute, _name_atribute=_name_atribute, _first_container=_first_container)
         return obj
 
@@ -813,3 +816,5 @@ if __name__ == "__main__":
         print(c, type(c))
     print(9)
     A = DbDict({0: [1, 4, {1}], 1: 0}, _use_db = True)
+    B = DbTuple((1, 2, [3]), _use_db=True)
+    print(DbTuple.loads(B.dumps()))
