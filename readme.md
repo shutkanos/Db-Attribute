@@ -13,6 +13,7 @@ This module allows you to save attributes of objects not in RAM, but in a databa
         * [Change attribute of obj](#change-attribute-of-obj)
         * [Dump mode](#dump-mode)
     * [Types](#types)
+        * [Db attribute](#db-attribute)
         * [Db classes](#db-classes)
         * [Json type](#json-type)
 * [Speed Test](#speed-test)
@@ -117,14 +118,26 @@ print(obj) #User(id=3, name='Anna', age=15)
 use cls.db_attribute_found_ids(**attributes) for get all ids with values of this attributes
 
 ```python
-obj = User(id=1, name='Bob', age=3),
-obj = User(id=2, name='Bob', age=2),
+obj = User(id=1, name='Bob', age=3)
+obj = User(id=2, name='Bob', age=2)
 obj = User(id=3, name='Anna', age=2)
 
 print(User.db_attribute_found_ids(name='Bob')) #{1, 2}
 print(User.db_attribute_found_ids(age=2)) #{2, 3}
 print(User.db_attribute_found_ids(name='Bob', age=2)) #{2}
 ```
+or
+```python
+obj = User(id=1, name='Bob', age=3)
+obj = User(id=2, name='Bob', age=2)
+obj = User(id=3, name='Anna', age=2)
+
+print(User(name='Bob', age=3).id) #1
+print(User(name='Anna').id) #3
+print(User(name='Bob').id) #error, a lot of obj found
+print(User(name='Other name').id) #error, no obj found
+```
+
 
 ### Change attribute of obj
 
@@ -194,6 +207,40 @@ user.db_attribute_set_auto_dump_mode()
 ```
 
 ## Types
+
+### Db attribute
+
+you can set the Db attribute class as data type for another Db attribute class
+
+```python
+from db_attribute.db_types import DbAttributeType
+
+*decorators*
+class Class_A(DbAttribute):
+    obj_b: DbAttributeType('Class_B')
+
+*decorators*
+class Class_B(DbAttribute):
+    obj_a: Class_A
+```
+for create obj:
+```python
+obj = Class_A(id=15, name='Anna', obj_b=1)
+obj = Class_B(id=1, name='Bob', obj_a=15)
+print(obj.obj_a.name) #Anna
+#or
+obj = Class_A(id=15, name='Anna', obj_b=obj)
+print(obj.obj_b.name) #Bob
+```
+for found obj:
+```python
+obj = Class_B(id=1, name='Bob')
+obj = Class_A(obj_a=obj)
+print(obj.name) #Anna
+obj = Class_A(obj_a=1)
+print(obj.name) #Anna
+```
+
 ### Db classes
 when collections are stored in memory, they converted to Db classes
 ```python
