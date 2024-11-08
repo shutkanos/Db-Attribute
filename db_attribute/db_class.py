@@ -659,6 +659,7 @@ class Cheaker:
         self.db_class_name_to_db_class = {self._db_classes[i].__name__ : self._db_classes[i] for i in self._db_classes}
         self.class_name_to_db_class = {i.__name__: self._db_classes[i] for i in self._db_classes}
         self.db_class_name_to_clasic_class = {self._db_classes[i].__name__: i for i in self._db_classes}
+        self.all_db_classes = set(_db_classes.values())
 
 
     def set_db_classes(self, _db_classes: dict):
@@ -672,6 +673,7 @@ class Cheaker:
         self.db_class_name_to_db_class = {self._db_classes[i].__name__ : self._db_classes[i] for i in self._db_classes}
         self.class_name_to_db_class = {i.__name__: self._db_classes[i] for i in self._db_classes}
         self.db_class_name_to_clasic_class = {self._db_classes[i].__name__: i for i in self._db_classes}
+        self.all_db_classes = set(_db_classes.values())
 
     def add_db_class(self, _db_class: tuple):
         """:param _db_class: example: (datetime.datetime: DbDatetime)"""
@@ -679,6 +681,7 @@ class Cheaker:
         self.db_class_name_to_db_class[_db_class[1].__name__] = _db_class[1]
         self.class_name_to_db_class[_db_class[0].__name__] = _db_class[1]
         self.db_class_name_to_clasic_class[_db_class[1].__name__] = _db_class[0]
+        self.all_db_classes.add(_db_class[1])
 
     def remove_db_class(self, name_clasic_class=None, name_db_class=None):
         if name_clasic_class is None and name_db_class is None:
@@ -692,6 +695,7 @@ class Cheaker:
         del self.db_class_name_to_db_class[name_db_class]
         del self.class_name_to_db_class[name_clasic_class]
         del self.db_class_name_to_clasic_class[name_db_class]
+        self.all_db_classes.discard(db_class)
 
     def create_any_db_classes(self, *objs, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         """
@@ -775,14 +779,10 @@ class Cheaker:
         return y
 
     def this_support_class(self, obj, this_is_cls=False):
-        if this_is_cls:
-            return obj in self._db_classes
-        return type(obj) in self._db_classes
+        return obj in self._db_classes if this_is_cls else type(obj) in self._db_classes
 
     def this_db_attribute_support_class(self, obj, this_is_cls=False):
-        if this_is_cls:
-            return obj in self._db_classes.values()
-        return type(obj) in self._db_classes.values()
+        return obj in self.all_db_classes if this_is_cls else type(obj) in self.all_db_classes
 
 def __newobj_ex__(cls, args, kwargs, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
     return cls.__new__(cls, *args, *kwargs, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)

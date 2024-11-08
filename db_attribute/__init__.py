@@ -4,7 +4,7 @@ from dataclasses import MISSING
 
 import db_attribute.db_class as db_class
 import db_attribute.db_work as db_work
-import db_attribute.db_types as dbtypes
+import db_attribute.db_types as db_types
 
 __all__ = ['dbDecorator', 'db_field', 'DbAttribute', 'db_work', 'db_class', 'connector', 'db_types']
 __version__ = '1.2'
@@ -13,6 +13,9 @@ def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
     def wrap(cls):
         if (('_db_attribute__dbworkobj' not in cls.__dict__) or cls._db_attribute__dbworkobj is None) and _db_attribute__dbworkobj is None:
             raise Exception('set _db_attribute__dbworkobj in class (_db_attribute__dbworkobj: ClassVar[list] = *dbwork obj*) or give dbwork obj to dbDecorator')
+
+        db_types.dict_classes.add(cls)
+
         if not _db_attribute__dbworkobj is None:
             cls._db_attribute__dbworkobj = _db_attribute__dbworkobj
 
@@ -20,11 +23,11 @@ def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
 
         if '_db_attribute__list_db_attributes' not in cls.__dict__:
             cls._db_attribute__list_db_attributes = set()
-        cls._db_attribute__list_db_attributes = set(cls._db_attribute__list_db_attributes | {i for i in cls.__annotations__ if isinstance(_Fields[i], dbtypes.DbField)})
+        cls._db_attribute__list_db_attributes = set(cls._db_attribute__list_db_attributes | {i for i in cls.__annotations__ if isinstance(_Fields[i], db_types.DbField)})
 
-        fields_kw_only_init_db_attributes = [i for i in _Fields if _Fields[i].kw_only and _Fields[i].init and isinstance(_Fields[i], dbtypes.DbField)]
+        fields_kw_only_init_db_attributes = [i for i in _Fields if _Fields[i].kw_only and _Fields[i].init and isinstance(_Fields[i], db_types.DbField)]
         fields_not_kw_only_init = [i for i in _Fields if (not _Fields[i].kw_only) and _Fields[i].init]
-        fields_not_kw_only_init_db_attributes = [i for i in _Fields if isinstance(_Fields[i], dbtypes.DbField) and (not _Fields[i].kw_only) and _Fields[i].init]
+        fields_not_kw_only_init_db_attributes = [i for i in _Fields if isinstance(_Fields[i], db_types.DbField) and (not _Fields[i].kw_only) and _Fields[i].init]
 
         set_db_attributes = set(cls._db_attribute__list_db_attributes)
         set_fields_kw_only_init_db_attributes = set(fields_kw_only_init_db_attributes)
@@ -37,11 +40,18 @@ def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
         dict_db_sorted_atrs = {db_sorted_atrs[i]: i for i in range(len(db_sorted_atrs)) if db_sorted_atrs[i] in set_db_attributes}
 
         def new_init(self, *args, _without_init=False, **kwargs):
-            ID = -1
             if 'id' in kwargs:
                 ID = kwargs['id']
             elif args:
                 ID = args[0]
+            else:
+                IDs = cls.db_attribute_found_ids(**kwargs)
+                if not IDs:
+                    raise Exception(f'no object with these attributes was found {kwargs}')
+                if len(IDs) > 1:
+                    raise Exception(f'more than one object with these attributes was found {kwargs}')
+                object.__setattr__(self, 'id', next(iter(IDs)))
+                return
             if _without_init:
                 object.__setattr__(self, 'id', ID)
                 return
@@ -53,8 +63,8 @@ def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
                     temp_data.add(i)
             db_args_not_set -= temp_data
 
-            kwargs |= {i: dbtypes.NotSet for i in db_args_not_set}
-            kwargs |= {i: dbtypes.NotSet for i in set_fields_kw_only_init_db_attributes - set(kwargs)}
+            kwargs |= {i: db_types.NotSet for i in db_args_not_set}
+            kwargs |= {i: db_types.NotSet for i in set_fields_kw_only_init_db_attributes - set(kwargs)}
             return cls.__old_init__(self, *args, **kwargs)
         cls.__old_init__ = cls.__init__
         cls.__init__ = new_init
@@ -66,7 +76,7 @@ def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
 def db_field(*, default=MISSING, default_factory=MISSING, init=True, repr=True, hash=None, compare=True, metadata=None, kw_only=MISSING):
     if default is not MISSING and default_factory is not MISSING:
         raise ValueError('cannot specify both default and default_factory')
-    return dbtypes.DbField(default, default_factory, init, repr, hash, compare, metadata, kw_only)
+    return db_types.DbField(default, default_factory, init, repr, hash, compare, metadata, kw_only)
 
 @dataclasses.dataclass
 class DbAttribute:
@@ -82,13 +92,13 @@ class DbAttribute:
 
     @classmethod
     def _db_attribute_get_default_value(cls, fieldname):
-        Field = getattr(cls, '__dataclass_fields__').get(fieldname, dbtypes.NotSet)
-        if Field is dbtypes.NotSet or (Field.default is MISSING and Field.default_factory is MISSING): return dbtypes.NotSet
+        Field = getattr(cls, '__dataclass_fields__').get(fieldname, db_types.NotSet)
+        if Field is db_types.NotSet or (Field.default is MISSING and Field.default_factory is MISSING): return db_types.NotSet
         if Field.default is not MISSING: return Field.default
         return Field.default_factory()
 
     def _db_attribute_set_attr(self, key, value):
-        if value is dbtypes.NotSet:
+        if value is db_types.NotSet:
             return
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
@@ -117,7 +127,8 @@ class DbAttribute:
             temp_data['status_code'] = 304
         if temp_data['status_code'] == 304:
             value = cls._db_attribute_get_default_value(key)
-            object.__getattribute__(self, '_db_attribute_dump_attr_to_db')(key, value, cheak_exists_value=False)
+            self._db_attribute_set_attr(key, value)
+            #object.__getattribute__(self, '_db_attribute_dump_attr_to_db')(key, value, cheak_exists_value=False)
             return value
         if temp_data['status_code'] != 200:
             return None
