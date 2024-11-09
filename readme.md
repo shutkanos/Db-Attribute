@@ -115,18 +115,6 @@ print(obj) #User(id=3, name='Anna', age=15)
 
 ### Found obj by other attributes
 
-use cls.db_attribute_found_ids(**attributes) for get all ids with values of this attributes
-
-```python
-obj = User(id=1, name='Bob', age=3)
-obj = User(id=2, name='Bob', age=2)
-obj = User(id=3, name='Anna', age=2)
-
-print(User.db_attribute_found_ids(name='Bob')) #{1, 2}
-print(User.db_attribute_found_ids(age=2)) #{2, 3}
-print(User.db_attribute_found_ids(name='Bob', age=2)) #{2}
-```
-or
 ```python
 obj = User(id=1, name='Bob', age=3)
 obj = User(id=2, name='Bob', age=2)
@@ -137,7 +125,23 @@ print(User(name='Anna').id) #3
 print(User(name='Bob').id) #error, a lot of obj found
 print(User(name='Other name').id) #error, no obj found
 ```
+or
+```python
+obj = User(id=1, name='Camel', age=1)
+obj = User(id=2, name='Bob', age=2)
+obj = User(id=3, name='Anna', age=3)
 
+print(User(User.age == 2)) #User(id=2, name='Bob', age=2)
+print(User(User.age < 2)) #User(id=1, name='Camel', age=1)
+print(User(User.name < 'Bob')) #User(id=3, name='Anna', age=3)
+print(User(User.name._like('A%'))) #User(id=3, name='Anna', age=3)
+
+print(User.age > 1) #{2, 3}
+print(User.name > 'A') #{1, 2, 3}
+print(User.name > 'Anna') #{1, 2}
+
+print(User.name._like('%a%')) #{1, 3}, see Like in sql
+```
 
 ### Change attribute of obj
 
@@ -172,7 +176,7 @@ print(user.__dict__)
 # {'id': 1}
 user.db_attribute_set_manual_dump_mode()
 print(user.__dict__)
-# {'id': 1, 'any_db_data1': 531, 'any_db_data2': 'string'}
+# {'id': 1, '_any_db_data1': 531, '_any_db_data2': 'string'}
 ```
 or set dump mod for individual attributes
 
@@ -182,7 +186,7 @@ print(user.__dict__)
 # {'id': 1}
 user.db_attribute_set_manual_dump_mode({'any_db_data1'})
 print(user.__dict__)
-# {'id': 1, 'any_db_data1': 531}
+# {'id': 1, '_any_db_data1': 531}
 ```
 
 ```python
@@ -275,7 +279,6 @@ from db_attribute.db_types import JsonType
 @dataclass
 class User(DbAttribute):
     sittings: JsonType = db_field()
-
 
 obj = User(1, sittings={1: 2, 3: [4, 5]})
 print(obj.sittings)  # {'1': 2, '3': [4, 5]}

@@ -107,26 +107,26 @@ class Db_work:
     def get_type_data_table(self, table_name: str):
         if table_name not in self.active_tables:
             return {'status_code': 302}
-        self.connobj.cur.execute(f"""SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE COLUMN_NAME = 'data' AND TABLE_SCHEMA = 'db_attribute' AND TABLE_NAME = '{table_name}';""")
+        self.connobj.cur.execute(f"""SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE COLUMN_NAME = 'data' AND TABLE_SCHEMA = '{self.connobj.database}' AND TABLE_NAME = '{table_name}';""")
         return {'status_code': 200, 'data': self.connobj.cur.fetchall()[-1][0]}
 
     @sql_decorator
-    def get_values_by_id(self, table_name:str, ID:int, ignore_302:bool=False):
+    def get_values_by_id(self, table_name:str, ID:int, operator:str="=", ignore_302:bool=False):
         if table_name not in self.active_tables:
             if ignore_302:
                 return {'status_code': 200, 'data': []}
             return {'status_code': 302}
-        self.connobj.cur.execute(f"""select * from {table_name} where id={ID}""")
+        self.connobj.cur.execute(f"""select * from {table_name} where id {operator} {ID}""")
         return {'status_code': 200, 'data': [i[-1] for i in self.connobj.cur.fetchall()]}
 
     @sql_decorator
-    def get_ids_by_value(self, table_name:str, value, ignore_302:bool=False):
+    def get_ids_by_value(self, table_name:str, value, operator:str="=", ignore_302:bool=False):
         if table_name not in self.active_tables:
             if ignore_302:
                 return {'status_code': 200, 'data': []}
             return {'status_code': 302}
-        self.connobj.cur.execute(f"""select id from {table_name} where data={value}""")
-        return {'status_code': 200, 'data': [i[0] for i in self.connobj.cur.fetchall()]}
+        self.connobj.cur.execute(f"""select id from {table_name} where data {operator} {value}""")
+        return {'status_code': 200, 'data': {i[0] for i in self.connobj.cur.fetchall()}}
 
     @sql_decorator
     def del_value_by_id(self, table_name:str, ID:int, ignore_302:bool=False):
@@ -207,14 +207,24 @@ class Db_work:
             attribute_type = object.__getattribute__(_obj_dbattribute, '__annotations__')[attribute_name]
         return convert_mysql_value_to_attribute_value(value, attribute_type=attribute_type, _obj_dbattribute=_obj_dbattribute, attribute_name=attribute_name)
 
-    def found_ids_by_value(self, class_name: str, attribute_name: str, data, attribute_type=None, _cls_dbattribute=None, ignore_302:bool=False):
+    def found_ids_by_value(self, class_name: str, attribute_name: str, data, attribute_type=None, _cls_dbattribute=None, operator: str="=", ignore_302:bool=False):
+        """
+        :param class_name: ex: 'User'
+        :param attribute_name: ex: 'name'/'age'
+        :param data: any data, ex: 10 / {3, 5, 6} / 'Bob'
+        :param attribute_type: ex: int, bool, list, User (Db attribute type)
+        :param _cls_dbattribute: User
+        :param operator: '=' / '!=' / '<>' / '<' / '>' / '>=' / '<=' / 'Like'
+        :param ignore_302: bool, if true, ignore 302 error, return 200 and empty data
+        :return: set of id's
+        """
         if attribute_type is None:
             attribute_type = object.__getattribute__(_cls_dbattribute, '__annotations__')[attribute_name]
         temp_data = convert_attribute_value_to_mysql_value(data, attribute_type=attribute_type)
         if temp_data['status_code'] != 200: return temp_data
         value = temp_data['data']
         table_name = get_table_name(class_name=class_name, attribute_name=attribute_name)
-        return self.get_ids_by_value(table_name=table_name, value=value, ignore_302=ignore_302)
+        return self.get_ids_by_value(table_name=table_name, value=value, operator=operator, ignore_302=ignore_302)
 
 
 if __name__ == '__main__':

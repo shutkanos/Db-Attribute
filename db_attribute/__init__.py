@@ -5,9 +5,10 @@ from dataclasses import MISSING
 import db_attribute.db_class as db_class
 import db_attribute.db_work as db_work
 import db_attribute.db_types as db_types
+import db_attribute.discriptor as discriptor
 
 __all__ = ['dbDecorator', 'db_field', 'DbAttribute', 'db_work', 'db_class', 'connector', 'db_types']
-__version__ = '1.2'
+__version__ = '1.3'
 
 def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
     def wrap(cls):
@@ -20,6 +21,10 @@ def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
             cls._db_attribute__dbworkobj = _db_attribute__dbworkobj
 
         _Fields = getattr(cls, '__dataclass_fields__')
+
+        for attr_name in _Fields:
+            if isinstance(_Fields[attr_name], db_types.DbField):
+                setattr(cls, attr_name, discriptor.DbAttributeDiscriptor(cls, attr_name))
 
         if '_db_attribute__list_db_attributes' not in cls.__dict__:
             cls._db_attribute__list_db_attributes = set()
@@ -40,16 +45,20 @@ def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
         dict_db_sorted_atrs = {db_sorted_atrs[i]: i for i in range(len(db_sorted_atrs)) if db_sorted_atrs[i] in set_db_attributes}
 
         def new_init(self, *args, _without_init=False, **kwargs):
+            if not (kwargs or args):
+                raise Exception('need args or kwargs for create obj')
             if 'id' in kwargs:
                 ID = kwargs['id']
-            elif args:
+            elif args and isinstance(args[0], int):
                 ID = args[0]
             else:
-                IDs = cls.db_attribute_found_ids(**kwargs)
+                IDs = cls.db_attribute_found_ids(**kwargs) if kwargs else args[0]
+                for i in args:
+                    IDs &= i
                 if not IDs:
-                    raise Exception(f'no object with these attributes was found {kwargs}')
+                    raise Exception('no object with these attributes was found')
                 if len(IDs) > 1:
-                    raise Exception(f'more than one object with these attributes was found {kwargs}')
+                    raise Exception('more than one object with these attributes was found')
                 object.__setattr__(self, 'id', next(iter(IDs)))
                 return
             if _without_init:
@@ -84,20 +93,16 @@ class DbAttribute:
     _db_attribute__list_db_attributes: ClassVar[list] = []
     _db_attribute__dbworkobj: ClassVar[db_work.Db_work] = None
 
-    def __setattr__(self, key, value):
-        object.__getattribute__(self, '_db_attribute_set_attr')(key, value)
-
-    def __getattribute__(self, item):
-        return object.__getattribute__(self, '_db_attribute_get_attr')(item)
-
     @classmethod
     def _db_attribute_get_default_value(cls, fieldname):
+        print('The _db_attribute_get_default_value is not support')
         Field = getattr(cls, '__dataclass_fields__').get(fieldname, db_types.NotSet)
         if Field is db_types.NotSet or (Field.default is MISSING and Field.default_factory is MISSING): return db_types.NotSet
         if Field.default is not MISSING: return Field.default
         return Field.default_factory()
 
     def _db_attribute_set_attr(self, key, value):
+        print('The _db_attribute_set_attr is not support')
         if value is db_types.NotSet:
             return
         self_dict = object.__getattribute__(self, '__dict__')
@@ -107,6 +112,7 @@ class DbAttribute:
         self._db_attribute_dump_attr_to_db(key, value)
 
     def _db_attribute_dump_attr_to_db(self, key, value, cheak_exists_value=True, update_value=False):
+        print('The _db_attribute_dump_attr_to_db is not support')
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
         attribute_type = cls.__annotations__[key]
@@ -117,6 +123,7 @@ class DbAttribute:
         cls._db_attribute__dbworkobj.add_attribute_value(class_name=cls.__name__, attribute_name=key, ID=self_dict['id'], data=obj, attribute_type=attribute_type, cheak_exists_value=cheak_exists_value, update_value=update_value)
 
     def _db_attribute_get_attr(self, key):
+        print('The _db_attribute_get_attr is not support')
         cls = object.__getattribute__(self, '__class__')
         self_dict = object.__getattribute__(self, '__dict__')
         if (key in self_dict) or (key not in cls.__dict__['_db_attribute__list_db_attributes']):
@@ -128,7 +135,6 @@ class DbAttribute:
         if temp_data['status_code'] == 304:
             value = cls._db_attribute_get_default_value(key)
             self._db_attribute_set_attr(key, value)
-            #object.__getattribute__(self, '_db_attribute_dump_attr_to_db')(key, value, cheak_exists_value=False)
             return value
         if temp_data['status_code'] != 200:
             return None
@@ -143,62 +149,58 @@ class DbAttribute:
         """
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
-        if (key in self_dict) or (key not in cls.__dict__['_db_attribute__list_db_attributes']):
+        if ('_'+key in self_dict) or (key not in cls.__dict__['_db_attribute__list_db_attributes']):
             return
-        cls._db_attribute__dbworkobj.add_attribute_value(class_name=cls.__name__, attribute_name=key, ID=self_dict['id'], data=data, _cls_dbattribute=cls, cheak_exists_value=False, update_value=True)
+        cls.__dict__[key].container_update(self, data)
+        #cls._db_attribute__dbworkobj.add_attribute_value(class_name=cls.__name__, attribute_name=key, ID=self_dict['id'], data=data, _cls_dbattribute=cls, cheak_exists_value=False, update_value=True)
 
     @classmethod
     def _db_attribute_found_ids_by_attribute(cls, attribute_name:str, attribute_value):
         tempdata = cls._db_attribute__dbworkobj.found_ids_by_value(class_name=cls.__name__, attribute_name=attribute_name, data=attribute_value, _cls_dbattribute=cls)
         if tempdata['status_code'] != 200:
-            return []
+            return set()
         return tempdata['data']
 
-    def db_attribute_dump(self):
+    def db_attribute_dump(self, attributes:set[str]=None):
         """
         use it func, if you need dump the data to db, with manual_dump_mode
         """
         self_dict = object.__getattribute__(self, '__dict__')
-        for db_atr in object.__getattribute__(self, '_db_attribute__list_db_attributes') & set(self_dict):
-            self._db_attribute_dump_attr_to_db(db_atr, self_dict[db_atr])
+        cls = object.__getattribute__(self, '__class__')
+        all_attributes = object.__getattribute__(self, '_db_attribute__list_db_attributes')
+        for db_attr in all_attributes if attributes is None else all_attributes & attributes:
+            if '_'+db_attr in self_dict:
+                cls.__dict__[db_attr].dump_attr(self)
 
-    def db_attribute_dump_attr(self, name_db_attribute):
-        """
-        this self.db_attribute_dump, but for one attribute
-        """
-        self_dict = object.__getattribute__(self, '__dict__')
-        if name_db_attribute in self_dict and name_db_attribute in object.__getattribute__(self, '_db_attribute__list_db_attributes'):
-            self._db_attribute_dump_attr_to_db(name_db_attribute, self_dict[name_db_attribute])
-
-    def db_attribute_set_manual_dump_mode(self, atributes:set[str]=None):
+    def db_attribute_set_manual_dump_mode(self, attributes:set[str]=None):
         """
         auto_dump_mode: attributes don't save in self.__dict__, all changes automatic dump in db.
         manual_dump_mode: all attributes save in self.__dict__, and won't dump in db until self.db_attribute_set_auto_dump_mode is called.
         function set undump_mode (dump_mode = False)
-        :param atributes: which atributes save in __dict__, ex: atributes={'name', 'age'}
+        :param attributes: which atributes save in __dict__, ex: atributes={'name', 'age'}
         """
-        all_attributes = object.__getattribute__(self, '__class__').__dict__['_db_attribute__list_db_attributes']
-        if atributes is None:
-            atributes = all_attributes
+        all_attributes = object.__getattribute__(self, '_db_attribute__list_db_attributes')
         self_dict = object.__getattribute__(self, '__dict__')
-        get_attr = object.__getattribute__(self, '_db_attribute_get_attr')
-        for db_atr in (all_attributes if all_attributes is atributes else all_attributes & atributes):
-            self_dict[db_atr] = get_attr(db_atr)
+        for db_attr in (all_attributes if attributes is None else all_attributes & attributes):
+            self_dict['_'+db_attr] = getattr(self, db_attr)
 
-    def db_attribute_set_auto_dump_mode(self):
+    def db_attribute_set_auto_dump_mode(self, attributes:set[str]=None):
         """
         auto_dump_mode: attributes don't save in self.__dict__, all changes automatic dump in db.
         manual_dump_mode: all attributes save in self.__dict__, and won't dump in db until self.db_attribute_set_auto_dump_mode is called.
         function set auto_dump_mode and call self.db_attribute_dump() for dump attributes
         """
-        self.db_attribute_dump()
+        self.db_attribute_dump(attributes=attributes)
         self_dict = object.__getattribute__(self, '__dict__')
-        for db_atr in object.__getattribute__(self, '_db_attribute__list_db_attributes') & set(self_dict):
-            del self_dict[db_atr]
+        all_attributes = object.__getattribute__(self, '_db_attribute__list_db_attributes')
+        for db_attr in all_attributes if attributes is None else all_attributes & attributes:
+            if '_'+db_attr in self_dict:
+                del self_dict['_'+db_attr]
 
     @classmethod
     def db_attribute_found_ids(cls, **kwargs):
         """
+        this function not used, use 'cls.attr == value'
         found ids objs with this values of attributes, ex:
         objs: User(id=1, name='Bob', age=3), User(id=2, name='Bob', age=2), User(id=3, name='Anna', age=2)
         User.db_attribute_found_ids_by_attributes(name='Bob') -> {1, 2}
@@ -207,8 +209,9 @@ class DbAttribute:
         :param kwargs: names and values of attributes (see doc.)
         :return: set of ids
         """
-        if not kwargs: return []
-        res = set(cls._db_attribute_found_ids_by_attribute(attribute_name=(temp:=next(iter(kwargs))), attribute_value=kwargs[temp]))
+        print('The db_attribute_found_ids is not support')
+        if not kwargs: return set()
+        res = cls._db_attribute_found_ids_by_attribute(attribute_name=(temp:=next(iter(kwargs))), attribute_value=kwargs[temp])
         for key in kwargs:
-            res &= set(cls._db_attribute_found_ids_by_attribute(attribute_name=key, attribute_value=kwargs[key]))
+            res &= cls._db_attribute_found_ids_by_attribute(attribute_name=key, attribute_value=kwargs[key])
         return res
