@@ -2,6 +2,8 @@ import functools
 import json
 import orjson
 
+from mysql.connector import errorcode
+
 import db_attribute.db_class as db_class
 import db_attribute.db_types as dbtypes
 import db_attribute
@@ -9,7 +11,6 @@ import db_attribute
 def convert_attribute_type_to_mysql_type(attribute_type, len_varchar=50):
     if attribute_type == str:
         return {'status_code': 200, 'data': f'varchar({len_varchar})'}
-    #print(attribute_type, issubclass(attribute_type, db_attribute.DbAttribute))
     if attribute_type == int or issubclass(attribute_type, db_attribute.DbAttribute):
         return {'status_code': 200, 'data': f'bigint'}
     if attribute_type == float or attribute_type == bool:
@@ -138,28 +139,27 @@ class Db_work:
         return {'status_code': 200}
     
     @sql_decorator
-    def add_value_by_id(self, table_name:str, ID:int, value, update_value_if_exists:bool=True, cheak_exists_value:bool=True, ignore_302:bool=False):
-        if cheak_exists_value:
-            temp_data = self.get_values_by_id(table_name=table_name, ID=ID)
-            if temp_data['status_code'] == 302 and ignore_302: return {'status_code': 200}
-            if temp_data['status_code'] != 200: return temp_data
-            if temp_data['data']:
-                if update_value_if_exists:
-                    return self.update_value_by_id(table_name=table_name, ID=ID, value=value, cheak_exists_value=False)
-                return {'status_code': 303}
-        self.connobj.cur.execute(f"""insert into {table_name} values ({ID}, {value})""")
-        self.connobj.conn.commit()
+    def add_value_by_id(self, table_name:str, ID:int, value, ignore_302:bool=False):
+        try:
+            self.connobj.cur.execute(f"""insert into {table_name} (id, data) values ({ID}, {value}) on duplicate key update data=data""")
+            self.connobj.conn.commit()
+        except Exception as e:
+            if e.errno == errorcode.ER_NO_SUCH_TABLE:
+                return {'status_code': 200} if ignore_302 else {'status_code': 302}
+            raise e
+
         return {'status_code': 200}
     
     @sql_decorator
     def update_value_by_id(self, table_name:str, ID:int, value, add_value_if_not_exists:bool=True, cheak_exists_value:bool=True, ignore_302:bool=False):
+        print('update_value_by_id is not support at the moment, and will deleted in 1.4 version')
         if cheak_exists_value:
             temp_data = self.get_values_by_id(table_name=table_name, ID=ID)
             if temp_data['status_code'] == 302 and ignore_302: return {'status_code': 200}
             if temp_data['status_code'] != 200: return temp_data
             if not temp_data['data']:
                 if add_value_if_not_exists:
-                    return self.add_value_by_id(table_name=table_name, ID=ID, value=value, cheak_exists_value=False)
+                    return self.add_value_by_id(table_name=table_name, ID=ID, value=value)
                 return {'status_code': 304}
         self.connobj.cur.execute(f"""update {table_name} set data = {value} where id = {ID}""")
         self.connobj.conn.commit()
@@ -185,17 +185,14 @@ class Db_work:
         if temp_data['status_code'] != 200: return temp_data
         return {'status_code': 200}
 
-    def add_attribute_value(self, class_name: str, attribute_name: str, ID:int, data, attribute_type=None, _cls_dbattribute=None, cheak_exists_value:bool=True, update_value:bool=False, ignore_302:bool=False):
+    def add_attribute_value(self, class_name: str, attribute_name: str, ID:int, data, attribute_type=None, _cls_dbattribute=None, cheak_exists_value:bool=True, ignore_302:bool=False):
         if attribute_type is None:
             attribute_type = object.__getattribute__(_cls_dbattribute, '__annotations__')[attribute_name]
         temp_data = convert_attribute_value_to_mysql_value(data, attribute_type=attribute_type)
         if temp_data['status_code'] != 200: return temp_data
         value = temp_data['data']
-        #print(f'{attribute_name=} {value=}')
         table_name = get_table_name(class_name=class_name, attribute_name=attribute_name)
-        if update_value:
-            return self.update_value_by_id(table_name=table_name, ID=ID, value=value, cheak_exists_value=cheak_exists_value, ignore_302=ignore_302)
-        return self.add_value_by_id(table_name=table_name, ID=ID, value=value, cheak_exists_value=cheak_exists_value, ignore_302=ignore_302)
+        return self.add_value_by_id(table_name=table_name, ID=ID, value=value, ignore_302=ignore_302)
 
     def get_attribute_value(self, class_name: str, attribute_name: str, ID:int, attribute_type=None, _obj_dbattribute=None):
         table_name = get_table_name(class_name=class_name, attribute_name=attribute_name)

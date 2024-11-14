@@ -303,7 +303,7 @@ print(obj.sittings) #{'1': 3}
 The execution speed may vary from computer to computer, so you need to focus on the specified number of operations per second of a regular mysql
 
 * mysql `select` - 12500 op/sec
-* mysql `insert/update` - 4500 op/sec<br>
+* mysql `insert` - 8500 op/sec<br>
 
 ## Get attr
 
@@ -320,17 +320,16 @@ JsonType  | 11937 op/sec      | -4%
 
 ## Set attr
 
-other name: update attr<br>
-mysql `insert/update` - 4500 op/sec<br>
+mysql `insert` - 8500 op/sec<br>
 
 Type      | Operation/seconds | How much slower is it
 ----------|-------------------|---------------------------
-int       | 4221 op/sec       | -6%
-str       | 4341 op/sec       | -3%
-tuple     | 3678 op/sec       | -18%
-list      | 3571 op/sec       | -20%
-dict      | 3506 op/sec       | -22%
-JsonType  | 4165 op/sec       | -7%
+int       | 8056 op/sec       | -5%
+str       | 8173 op/sec       | -3%
+tuple     | 6284 op/sec       | -26%
+list      | 6043 op/sec       | -28%
+dict      | 6354 op/sec       | -25%
+JsonType  | 7297 op/sec       | -14%
 
 # Data base
 

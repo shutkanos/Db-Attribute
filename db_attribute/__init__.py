@@ -152,7 +152,6 @@ class DbAttribute:
         if ('_'+key in self_dict) or (key not in cls.__dict__['_db_attribute__list_db_attributes']):
             return
         cls.__dict__[key].container_update(self, data)
-        #cls._db_attribute__dbworkobj.add_attribute_value(class_name=cls.__name__, attribute_name=key, ID=self_dict['id'], data=data, _cls_dbattribute=cls, cheak_exists_value=False, update_value=True)
 
     @classmethod
     def _db_attribute_found_ids_by_attribute(cls, attribute_name:str, attribute_value):

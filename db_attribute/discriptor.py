@@ -71,7 +71,7 @@ class DbAttributeDiscriptor:
             self.cls._db_attribute__dbworkobj.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, attribute_type=attribute_type)
             cheak_exists_value = False
         ID = object.__getattribute__(this, 'id')
-        self.cls._db_attribute__dbworkobj.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=obj, attribute_type=attribute_type, cheak_exists_value=cheak_exists_value, update_value=update_value)
+        self.cls._db_attribute__dbworkobj.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=obj, attribute_type=attribute_type)
 
     def get_attr_from_db(self, this):
         ID = object.__getattribute__(this, 'id')
@@ -94,6 +94,6 @@ class DbAttributeDiscriptor:
 
     def container_update(self, this, data=None):
         ID = object.__getattribute__(this, 'id')
-        self.cls._db_attribute__dbworkobj.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=data, _cls_dbattribute=self.cls, cheak_exists_value=False, update_value=True)
+        self.cls._db_attribute__dbworkobj.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=data, _cls_dbattribute=self.cls)
 
 
