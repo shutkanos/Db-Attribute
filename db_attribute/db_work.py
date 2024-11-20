@@ -136,6 +136,7 @@ class Db_work:
                 return {'status_code': 200}
             return {'status_code': 302}
         self.connobj.cur.execute(f"""delete from {table_name} where id={ID}""")
+        self.connobj.conn.commit()
         return {'status_code': 200}
     
     @sql_decorator
@@ -202,6 +203,10 @@ class Db_work:
         if attribute_type is None:
             attribute_type = object.__getattribute__(_obj_dbattribute, '__annotations__')[attribute_name]
         return convert_mysql_value_to_attribute_value(value, attribute_type=attribute_type, _obj_dbattribute=_obj_dbattribute, attribute_name=attribute_name)
+
+    def del_attribute_value(self, class_name: str, attribute_name: str, ID:int, ignore_302:bool=False):
+        table_name = get_table_name(class_name=class_name, attribute_name=attribute_name)
+        return self.del_value_by_id(table_name=table_name, ID=ID, ignore_302=ignore_302)
 
     def found_ids_by_value(self, class_name: str, attribute_name: str, data, attribute_type=None, _cls_dbattribute=None, operator: str="=", ignore_302:bool=False):
         """

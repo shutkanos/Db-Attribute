@@ -94,6 +94,9 @@ class DbAttribute:
     _db_attribute__list_db_attributes: ClassVar[list] = []
     _db_attribute__dbworkobj: ClassVar[db_work.Db_work] = None
 
+    def __del__(self):
+        self.db_attribute_del_objs({self.id})
+
     @classmethod
     def _db_attribute_get_default_value(cls, fieldname):
         print('The _db_attribute_get_default_value is not support')
@@ -177,7 +180,7 @@ class DbAttribute:
         auto_dump_mode: attributes don't save in self.__dict__, all changes automatic dump in db.
         manual_dump_mode: all attributes save in self.__dict__, and won't dump in db until self.db_attribute_set_auto_dump_mode is called.
         function set undump_mode (dump_mode = False)
-        :param attributes: which atributes save in __dict__, ex: atributes={'name', 'age'}
+        :param attributes: for which attributes will set the mode, ex: atributes={'name', 'age'}
         """
         all_attributes = object.__getattribute__(self, '_db_attribute__list_db_attributes')
         self_dict = object.__getattribute__(self, '__dict__')
@@ -189,6 +192,7 @@ class DbAttribute:
         auto_dump_mode: attributes don't save in self.__dict__, all changes automatic dump in db.
         manual_dump_mode: all attributes save in self.__dict__, and won't dump in db until self.db_attribute_set_auto_dump_mode is called.
         function set auto_dump_mode and call self.db_attribute_dump() for dump attributes
+        :param attributes: for which attributes will set the mode, ex: atributes={'name', 'age'}
         """
         self.db_attribute_dump(attributes=attributes)
         self_dict = object.__getattribute__(self, '__dict__')
@@ -196,6 +200,27 @@ class DbAttribute:
         for db_attr in all_attributes if attributes is None else all_attributes & attributes:
             if '_'+db_attr in self_dict:
                 del self_dict['_'+db_attr]
+
+    def db_attribute_del_attributes(self, attributes:set[str]=None):
+        """
+        Delete attributes this id from db and from __dict__
+        :param attributes: attributes to be deleted
+        :return:
+        """
+        all_attributes = object.__getattribute__(self, '_db_attribute__list_db_attributes')
+        for db_attr in all_attributes if attributes is None else all_attributes & attributes:
+            delattr(self, db_attr)
+
+    @classmethod
+    def db_attribute_del_objs(cls, IDs:set[int] | int, attributes:set[str]=None):
+        all_attributes = object.__getattribute__(cls, '_db_attribute__list_db_attributes')
+        attributes = all_attributes if attributes is None else attributes & all_attributes
+        IDs = {IDs} if isinstance(IDs, int) else IDs
+        dbworkobj = cls._db_attribute__dbworkobj
+        clsname = cls.__name__
+        for ID in IDs:
+            for db_attr in attributes:
+                dbworkobj.del_attribute_value(class_name=clsname, attribute_name=db_attr, ID=ID)
 
     @classmethod
     def db_attribute_found_ids(cls, **kwargs):
@@ -214,3 +239,5 @@ class DbAttribute:
         for key in kwargs:
             res &= cls._db_attribute_found_ids_by_attribute(attribute_name=key, attribute_value=kwargs[key])
         return res
+
+

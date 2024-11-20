@@ -59,6 +59,11 @@ class DbAttributeDiscriptor:
             return
         self.dump_attr_to_db(this, value)
 
+    def __delete__(self, this):
+        if self.private_name in object.__getattribute__(this, '__dict__'):
+            object.__delattr__(this, self.private_name)
+        self.del_attr_from_db(this)
+
     def get_default_value(self):
         if self.field is db_types.NotSet or (self.field.default is MISSING and self.field.default_factory is MISSING): return db_types.NotSet
         if self.field.default is not MISSING: return self.field.default
@@ -92,8 +97,10 @@ class DbAttributeDiscriptor:
             return
         self.dump_attr_to_db(this, getattr(this, self.private_name))
 
+    def del_attr_from_db(self, this):
+        ID = object.__getattribute__(this, 'id')
+        return object.__getattribute__(self.cls, '_db_attribute__dbworkobj').del_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID)
+
     def container_update(self, this, data=None):
         ID = object.__getattribute__(this, 'id')
         self.cls._db_attribute__dbworkobj.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=data, _cls_dbattribute=self.cls)
-
-
