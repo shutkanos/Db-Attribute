@@ -94,9 +94,6 @@ class DbAttribute:
     _db_attribute__list_db_attributes: ClassVar[list] = []
     _db_attribute__dbworkobj: ClassVar[db_work.Db_work] = None
 
-    def __del__(self):
-        self.db_attribute_del_objs({self.id})
-
     @classmethod
     def _db_attribute_get_default_value(cls, fieldname):
         print('The _db_attribute_get_default_value is not support')
@@ -201,9 +198,9 @@ class DbAttribute:
             if '_'+db_attr in self_dict:
                 del self_dict['_'+db_attr]
 
-    def db_attribute_del_attributes(self, attributes:set[str]=None):
+    def db_attribute_delete(self, attributes:set[str]=None):
         """
-        Delete attributes this id from db and from __dict__
+        Delete this id from db ()
         :param attributes: attributes to be deleted
         :return:
         """
