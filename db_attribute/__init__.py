@@ -75,6 +75,7 @@ def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
 
             kwargs |= {i: db_types.NotSet for i in db_args_not_set}
             kwargs |= {i: db_types.NotSet for i in set_fields_kw_only_init_db_attributes - set(kwargs)}
+            print(args, kwargs)
             return cls.__old_init__(self, *args, **kwargs)
         cls.__old_init__ = cls.__init__
         cls.__init__ = new_init

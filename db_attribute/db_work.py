@@ -23,7 +23,7 @@ def convert_attribute_value_to_mysql_value(attribute_value, attribute_type):
     if attribute_type in (int, float, bool):
         return {'status_code': 200, 'data': f'{attribute_value}'}
     if attribute_type == str:
-        return {'status_code': 200, 'data': json.dumps(attribute_value)}
+        return {'status_code': 200, 'data': json.dumps(attribute_value, ensure_ascii=False)}
     if attribute_type is dbtypes.JsonType:
         return {'status_code': 200, 'data': json.dumps(json.dumps(attribute_value))}
     if issubclass(attribute_type, db_attribute.DbAttribute):
@@ -141,13 +141,12 @@ class Db_work:
     @sql_decorator
     def add_value_by_id(self, table_name:str, ID:int, value, ignore_302:bool=False):
         try:
-            self.connobj.cur.execute(f"""insert into {table_name} (id, data) values ({ID}, {value}) on duplicate key update data=data""")
+            self.connobj.cur.execute(f"""insert into {table_name} (id, data) values ({ID}, {value}) on duplicate key update data=VALUES(data)""")
             self.connobj.conn.commit()
         except Exception as e:
             if e.errno == errorcode.ER_NO_SUCH_TABLE:
                 return {'status_code': 200} if ignore_302 else {'status_code': 302}
             raise e
-
         return {'status_code': 200}
     
     @sql_decorator
