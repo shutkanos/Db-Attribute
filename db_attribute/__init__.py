@@ -11,15 +11,15 @@ import db_attribute.discriptor as discriptor
 __all__ = ['dbDecorator', 'db_field', 'DbAttribute', 'db_work', 'db_class', 'connector', 'db_types']
 __version__ = '1.3'
 
-def dbDecorator(cls=None, /, _db_attribute__dbworkobj=None):
+def dbDecorator(cls=None, /, dbworkobj=None):
     def wrap(cls):
-        if (('_db_attribute__dbworkobj' not in cls.__dict__) or cls._db_attribute__dbworkobj is None) and _db_attribute__dbworkobj is None:
+        if (('_db_attribute__dbworkobj' not in cls.__dict__) or cls._db_attribute__dbworkobj is None) and dbworkobj is None:
             raise Exception('set _db_attribute__dbworkobj in class (_db_attribute__dbworkobj: ClassVar[list] = *dbwork obj*) or give dbwork obj to dbDecorator')
 
         db_types.dict_classes.add(cls)
 
-        if not _db_attribute__dbworkobj is None:
-            cls._db_attribute__dbworkobj = _db_attribute__dbworkobj
+        if not dbworkobj is None:
+            cls._db_attribute__dbworkobj = dbworkobj
 
         _Fields = getattr(cls, '__dataclass_fields__')
 
