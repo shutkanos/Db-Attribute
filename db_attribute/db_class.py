@@ -276,7 +276,7 @@ class DbClass:
             return obj
         return cls._standart_class.__new__(cls, *args, **kwargs)
 
-    def __init__(self, *args, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+    def __init__(self, *args, _use_db=False, _obj_dbattribute=None, _convert_arguments=True, _name_attribute=None, _first_container=None, _call_init=True, **kwargs):
         if _obj_dbattribute:
             self.__dict__['_obj_dbattribute'] = _obj_dbattribute
         if _name_attribute:
@@ -288,6 +288,8 @@ class DbClass:
                 if not isinstance(_first_container, _FirstContainer):
                     _first_container = _FirstContainer(_first_container)
                 self.__dict__['_first_container'] = _first_container
+        if _call_init:
+            super().__init__(*args, **kwargs)
 
     def __reduce_ex__(self, protocol):
         temp = super().__reduce_ex__(protocol)
@@ -361,23 +363,29 @@ class DbClass:
 @DbClassDecorator(list_of_methodes_with_converted_arguments=['__iadd__'])
 class DbList(DbClass, list):
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
-        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False)
         list.__init__(self, *args, **kwargs)
         if _convert_arguments:
-            _first_container = self._first_container
-            setitem = list.__setitem__
-            for key in range(len(self)):
-                setitem(self, key, cheaker.create_db_class(self[key], _first_container=_first_container))
-        """
-        iterable = list(args[0])
-
+            self.__convert_arguments__()
+        """iterable = args[0]
         if _convert_arguments:
             iterable = [cheaker.create_db_class(i, _first_container=self._first_container) for i in iterable]
         list.__init__(self, iterable)"""
 
     @classmethod
     def __convert_obj__(cls, obj: list, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if isinstance(obj, Tlist):
+            obj.__class__ = cls
+            DbClass.__init__(obj, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+            obj.__convert_arguments__()
+            return obj
         return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+
+    def __convert_arguments__(self):
+        _first_container = self._first_container
+        setitem = list.__setitem__
+        for key in range(len(self)):
+            setitem(self, key, cheaker.create_db_class(self[key], _first_container=_first_container))
 
     @MethodDecorator
     def append(self, item, /): pass
@@ -416,7 +424,7 @@ class DbSet(DbClass, set):
     _call_init_when_reconstruct = True
 
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
-        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False)
         iterable = set(args[0])
         if _convert_arguments:
             iterable = {cheaker.create_db_class(i, _first_container=self._first_container) for i in iterable}
@@ -462,7 +470,7 @@ class DbSet(DbClass, set):
 @DbClassDecorator(list_of_methodes_with_converted_arguments=['__ior__'])
 class DbDict(DbClass, dict):
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
-        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False)
         dict.__init__(self, *args, **kwargs)
         if _convert_arguments:
             _first_container = self._first_container
@@ -536,7 +544,7 @@ class DbTuple(DbClass, tuple):
         return obj
 
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
-        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False)
 
     def __iadd__(self, other):
         obj = self.__class__(self.__add__(other), _use_db=True, _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
@@ -564,12 +572,23 @@ class DbTuple(DbClass, tuple):
 class Dbfrozenset(DbClass, frozenset): pass
 
 @DbClassDecorator
-class DbDeque(DbClass, collections.deque): pass
+class DbDeque(DbClass, collections.deque):
+    def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False)
+
+        iterable = args[0]
+        if _convert_arguments:
+            iterable = [cheaker.create_db_class(i, _first_container=self._first_container) for i in iterable]
+        collections.deque.__init__(self, iterable)
+
+    @classmethod
+    def __convert_obj__(cls, obj: collections.deque, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator
 class DbDatetime(DbClass, datetime.datetime):
     def __init__(self, year, month=None, day=None, hour=0, minute=0, second=0, microsecond=0, tzinfo=None, *, fold=0, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
-        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, **kwargs)
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
     def __iadd__(self, other):
         obj = cheaker.create_db_class(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
@@ -594,7 +613,7 @@ class DbDatetime(DbClass, datetime.datetime):
 @DbClassDecorator
 class DbDate(DbClass, datetime.date):
     def __init__(self, year, month=None, day=None, *, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
-        super().__init__(year=year, month=month, day=day, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, **kwargs)
+        super().__init__(year=year, month=month, day=day, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
     def __iadd__(self, other):
         obj = cheaker.create_db_class(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
@@ -616,7 +635,7 @@ class DbDate(DbClass, datetime.date):
 @DbClassDecorator
 class DbTime(DbClass, datetime.time):
     def __init__(self, hour=0, minute=0, second=0, microsecond=0, tzinfo=None, *, fold=0, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
-        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, **kwargs)
+        super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
 
     def __iadd__(self, other):
         obj = cheaker.create_db_class(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
@@ -641,7 +660,7 @@ class DbTime(DbClass, datetime.time):
 @DbClassDecorator
 class DbTimedelta(DbClass, datetime.timedelta):
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
-        super().__init__(*args, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, **kwargs)
+        super().__init__(*args, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
 
     def dumps(self, _return_json=True):
         if _return_json: return json.dumps({'t': self.__class__.__name__, 'd': self.total_seconds()})
@@ -1043,12 +1062,13 @@ if __name__ == "__main__":
         print('10.5.2 error:')
         print(A, type(A))
     print(11, 'time test')
-    def test():
+    def test(cls, args):
         import time
         n = 3*10**4
+        print(f'test {cls}')
         start = time.time()
         for i in range(n):
-            A = DbDict({0: [[1, 2], [3, 4], [5, 6]], 1: {1, ((2,), (3,))}, 2: {1: {2: (3, ), 4: (5,)}, 6: {7: (8,)}}}, _use_db = True)
+            A = cls(args, _use_db = True)
         end = time.time()
         print(f'create: {n/(end - start)} op/sec {(end-start)} in {n} op')
         start = time.time()
@@ -1058,9 +1078,10 @@ if __name__ == "__main__":
         print(f'dumps: {n/(end - start)} op/sec {(end-start)} in {n} op')
         start = time.time()
         for i in range(n):
-            A = DbDict.loads(data)
+            A = cls.loads(data)
         end = time.time()
         print(f'loads: {n/(end - start)} op/sec {(end-start)} in {n} op')
-    test()
+    #test(DbDict, {0: [[1, 2], [3, 4], [5, 6]], 1: {1, ((2,), (3,))}, 2: {1: {2: (3, ), 4: (5,)}, 6: {7: (8,)}}})
+    test(DbList, [[[1, 2], [3, 4], [5, 6]], {1, ((2,), (3,))}, {1: {2: (3, ), 4: (5,)}, 6: {7: (8,)}}])
 
 

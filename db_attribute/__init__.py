@@ -5,6 +5,7 @@ from dataclasses import MISSING
 import db_attribute.db_class as db_class
 import db_attribute.db_work as db_work
 import db_attribute.db_types as db_types
+import db_attribute.connector as connector
 import db_attribute.discriptor as discriptor
 
 __all__ = ['dbDecorator', 'db_field', 'DbAttribute', 'db_work', 'db_class', 'connector', 'db_types']
@@ -208,7 +209,6 @@ class DbAttribute:
         :param kwargs: names and values of attributes (see doc.)
         :return: set of ids
         """
-        print('The db_attribute_found_ids is not support')
         if not kwargs: return set()
         res = cls._db_attribute_found_ids_by_attribute(attribute_name=(temp:=next(iter(kwargs))), attribute_value=kwargs[temp])
         for key in kwargs:
