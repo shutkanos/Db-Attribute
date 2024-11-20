@@ -318,7 +318,7 @@ class DbClass:
         """
         data = pickle.dumps(self).decode('latin1')
         if _return_json:
-            return json.dumps({'t': self.__class__.__name__, 'd': data})
+            return json.dumps({'t': self.__class__.__name__, 'd': data}, ensure_ascii=False)
         return {'t': self.__class__.__name__, 'd': data}
 
     @classmethod
