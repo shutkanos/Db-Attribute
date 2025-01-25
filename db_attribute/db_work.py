@@ -88,7 +88,7 @@ class Db_work:
     def create_table(self, table_name: str, attributes: list[tuple[str, str]]):
         if table_name.lower() in self.active_tables:
             return {'status_code': 301}
-        self.connobj.cur.execute(f"""CREATE TABLE {table_name} (id BIGINT PRIMARY KEY{', ' if attributes else ''}{', '.join((f'{attribute[0]} {attribute[1]}' for attribute in attributes))})""")
+        self.connobj.cur.execute(f"""CREATE TABLE {table_name} (id BIGINT PRIMARY KEY AUTO_INCREMENT{', ' if attributes else ''}{', '.join((f'{attribute[0]} {attribute[1]}' for attribute in attributes))})""")
         self.connobj.conn.commit()
         self.active_tables = self.get_list_tables()['data']
         return {'status_code': 200}

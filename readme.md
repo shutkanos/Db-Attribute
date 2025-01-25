@@ -173,36 +173,39 @@ DbAttribute.db_attribute_set_manual_dump_mode set manual_dump_mode
 user = User(id=1, any_db_data1=531, any_db_data2='string')
 print(user.__dict__)
 # {'id': 1}
-user.db_attribute_set_manual_dump_mode()
+user.set_manual_dump_mode()
 print(user.__dict__)
 # {'id': 1, '_any_db_data1': 531, '_any_db_data2': 'string'}
 ```
 Or set dump mod for individual attributes
+
 ```python
 user = User(id=1, any_db_data1=531, any_db_data2='string')
 print(user.__dict__)
 # {'id': 1}
-user.db_attribute_set_manual_dump_mode({'any_db_data1'})
+user.set_manual_dump_mode({'any_db_data1'})
 print(user.__dict__)
 # {'id': 1, '_any_db_data1': 531}
 ```
+
 ```python
 user = User(id=1, list_of_books=[])
-user.db_attribute_set_manual_dump_mode()
+user.set_manual_dump_mode()
 for i in range(10 ** 5):
     user.list_of_books.append(i)
-user.db_attribute_set_auto_dump_mode()
+user.set_auto_dump_mode()
 ```
 If Developer need dump attributes to db with manual_dump_mode, you can use DbAttribute.db_attribute_dump
+
 ```python
 user = User(id=1, list_of_books=[])
-user.db_attribute_set_manual_dump_mode()
+user.set_manual_dump_mode()
 for i in range(10 ** 4):
     user.list_of_books.append(i)
-user.db_attribute_dump()  # dump the list_of_books to db
+user.dump()  # dump the list_of_books to db
 for i in range(10 ** 4):
     user.list_of_books.append(i)
-user.db_attribute_set_auto_dump_mode()
+user.set_auto_dump_mode()
 ```
 
 ## Types
