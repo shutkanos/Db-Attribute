@@ -7,6 +7,7 @@ This module allows you to save attributes of objects not in RAM, but in a databa
 * [Install](#install)
 * [How it used](#how-it-used)
     * [Create class](#create-class)
+        * [Options](#options)
     * [Work with obj](#work-with-obj)
         * [Create new obj / add obj do db](#create-new-obj--add-obj-do-db)
         * [Found obj by id](#found-obj-by-id)
@@ -64,6 +65,25 @@ class User(DbAttribute, metaclass=DbAttributeMetaclass, __dbworkobj__=db_work_ob
 ```
 
 Each class object has its own `id`. It is inherited from DbAttribute and stored in __dict__
+
+### Options
+
+Options can be set in different ways:
+
+```python
+class User(DbAttribute, metaclass=DbAttributeMetaclass):
+    __dbworkobj__ = db_work_obj
+```
+```python
+class User(DbAttribute, metaclass=DbAttributeMetaclass):
+    class Meta:
+        __dbworkobj__ = db_work_obj
+```
+
+All options:
+
+* `__dbworkobj__` - database work object,
+* `__max_repr_recursion_limit__` - maximum recursion limit for `__repr__` of DbAttribute
 
 ## Work with obj
 

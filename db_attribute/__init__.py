@@ -7,7 +7,7 @@ import db_attribute.connector as connector
 import db_attribute.discriptor as discriptor
 
 __all__ = ['DbAttribute', 'DbAttributeMetaclass', 'db_work', 'db_class', 'discriptor', 'connector', 'db_types']
-__version__ = '2.0'
+__version__ = '2.0.1'
 
 class DbAttributeMetaclass(type):
     dict_classes = db_types.DictClasses()
@@ -31,13 +31,13 @@ class DbAttributeMetaclass(type):
             if Meta is not None:
                 __meta_options__ |= getattr(Meta, '__dict__', {})
 
-        for i in __meta_options__:
-            if i in options:
-                options[i] = __meta_options__[i]
-
         for i in __dict__:
             if i in options:
                 options[i] = __dict__[i]
+
+        for i in __meta_options__:
+            if i in options:
+                options[i] = __meta_options__[i]
 
         for i in kwargs:
             if i in options:
