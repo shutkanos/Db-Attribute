@@ -1,6 +1,4 @@
-import dataclasses
-from typing import ClassVar
-from dataclasses import MISSING
+from typing import ClassVar, get_origin
 
 import db_attribute.db_class as db_class
 import db_attribute.db_work as db_work
@@ -8,94 +6,158 @@ import db_attribute.db_types as db_types
 import db_attribute.connector as connector
 import db_attribute.discriptor as discriptor
 
-__all__ = ['dbDecorator', 'db_field', 'DbAttribute', 'db_work', 'db_class', 'connector', 'db_types']
-__version__ = '1.3.1'
+__all__ = ['DbAttribute', 'DbAttributeMetaclass', 'db_work', 'db_class', 'discriptor', 'connector', 'db_types']
+__version__ = '2.0'
 
-def dbDecorator(cls=None, /, dbworkobj=None):
-    def wrap(cls):
-        if dbworkobj is None:
-            raise Exception('set _db_attribute__dbworkobj in class (_db_attribute__dbworkobj: ClassVar[list] = *dbwork obj*) or give dbwork obj to dbDecorator')
+class DbAttributeMetaclass(type):
+    dict_classes = db_types.DictClasses()
+    def __new__(cls, name, bases, namespace, **kwargs):
+        if DbAttribute not in bases:
+            bases = (DbAttribute,) + bases
+        new_cls = super().__new__(cls, name, bases, namespace)
 
-        db_types.dict_classes.add(cls)
+        options = {'__dbworkobj__': db_types.NotSet, '__max_repr_recursion_limit__': 10}
 
-        cls._db_attribute__dbworkobj = dbworkobj
+        __annotations__ = {}
+        __dict__ = {}
+        __db_fields__ = {}
+        __meta_options__ = {}
 
-        _Fields = getattr(cls, '__dataclass_fields__')
+        for i in new_cls.__mro__[::-1]:
+            __db_fields__ |= getattr(i, '__db_fields__', {})
+            __dict__ |= getattr(i, '__dict__', {})
+            __annotations__ |= getattr(i, '__annotations__', {})
+            Meta = getattr(i, 'Meta', None)
+            if Meta is not None:
+                __meta_options__ |= getattr(Meta, '__dict__', {})
 
-        for attr_name in _Fields:
-            if isinstance(_Fields[attr_name], db_types.DbField):
-                setattr(cls, attr_name, discriptor.DbAttributeDiscriptor(cls, attr_name))
+        for i in __meta_options__:
+            if i in options:
+                options[i] = __meta_options__[i]
 
-        for i in cls.__mro__:
-            if hasattr(i, '__annotations__'):
-                cls.__annotations__.update(i.__annotations__)
+        for i in __dict__:
+            if i in options:
+                options[i] = __dict__[i]
 
-        #if '_db_attribute__list_db_attributes' not in cls.__dict__:
-        #    cls._db_attribute__list_db_attributes = set()
-        cls._db_attribute__list_db_attributes = set(_Fields) - {'id'}
+        for i in kwargs:
+            if i in options:
+                options[i] = kwargs[i]
 
-        fields_kw_only_init_db_attributes = [i for i in _Fields if _Fields[i].kw_only and _Fields[i].init and isinstance(_Fields[i], db_types.DbField)]
-        fields_not_kw_only_init = [i for i in _Fields if (not _Fields[i].kw_only) and _Fields[i].init]
-        fields_not_kw_only_init_db_attributes = [i for i in _Fields if isinstance(_Fields[i], db_types.DbField) and (not _Fields[i].kw_only) and _Fields[i].init]
+        for i in options:
+            setattr(new_cls, i, options[i])
 
-        set_db_attributes = set(cls._db_attribute__list_db_attributes)
-        set_fields_kw_only_init_db_attributes = set(fields_kw_only_init_db_attributes)
-        set_fields_not_kw_only_init_db_attributes = set(fields_not_kw_only_init_db_attributes)
+        attr_names = list(__annotations__.keys())
+        set_attr_names = set(attr_names)
+        for i in __dict__:
+            if isinstance(__dict__[i], db_types.DbField) and i not in set_attr_names:
+                attr_names.append(i)
+                set_attr_names.add(i)
 
-        db_sorted_atrs = fields_not_kw_only_init.copy()
-        if 'id' not in db_sorted_atrs:
-            db_sorted_atrs = ['id'] + db_sorted_atrs
+        for attr_name in attr_names:
+            if attr_name == 'id': continue
+            attr_value = __dict__.get(attr_name, db_types.MISSING)
+            attr_type = __annotations__.get(attr_name, db_types.MISSING)
 
-        dict_db_sorted_atrs = {db_sorted_atrs[i]: i for i in range(len(db_sorted_atrs)) if db_sorted_atrs[i] in set_db_attributes}
+            if get_origin(attr_type) is ClassVar:
+                continue
 
-        def new_init(self, *args, _without_init=False, **kwargs):
-            if not (kwargs or args):
-                raise Exception('need args or kwargs for create obj')
-            if 'id' in kwargs:
-                ID = kwargs['id']
-            elif args and isinstance(args[0], int):
-                ID = args[0]
+            if isinstance(attr_value, db_types.DbField):
+                db_field = attr_value
             else:
-                IDs = cls.found(**kwargs) if kwargs else args[0]
-                for i in args:
-                    IDs &= i
-                if not IDs:
-                    raise Exception('no object with these attributes was found')
-                if len(IDs) > 1:
-                    raise Exception('more than one object with these attributes was found')
-                object.__setattr__(self, 'id', next(iter(IDs)))
-                return
-            if _without_init:
-                object.__setattr__(self, 'id', ID)
-                return
-            db_args_not_set = set_fields_not_kw_only_init_db_attributes.copy() - set(kwargs)
+                db_field = db_types.DbField(default=attr_value)
 
-            temp_data = set()
-            for i in db_args_not_set:
-                if i in dict_db_sorted_atrs and dict_db_sorted_atrs[i] < len(args):
-                    temp_data.add(i)
-            db_args_not_set -= temp_data
+            if attr_type is not db_types.MISSING and db_field.python_type is db_types.MISSING:
+                db_field.python_type = attr_type
+            if db_field.python_type is db_types.MISSING:
+                if db_field.default is not db_types.MISSING:
+                    db_field.python_type = type(db_field.default)
+                elif db_field.default_factory is not db_types.MISSING:
+                    db_field.python_type = type(db_field.default_factory.get_value())
+            if db_field.python_type is db_types.MISSING:
+                raise f'the type for {attr_name} of {name} is not set (add python_type for DbField or set type in annotations or set default for DbField or set default_factory for DbField)'
 
-            kwargs |= {i: db_types.NotSet for i in db_args_not_set}
-            kwargs |= {i: db_types.NotSet for i in set_fields_kw_only_init_db_attributes - set(kwargs)}
-            return cls.__old_init__(self, *args, **kwargs)
-        cls.__old_init__ = cls.__init__
-        cls.__init__ = new_init
-        return cls
-    if cls is None:
-        return wrap
-    return wrap(cls)
+            __db_fields__[attr_name] = db_field
 
-def db_field(*, default=MISSING, default_factory=MISSING, init=True, repr=True, hash=None, compare=True, metadata=None, kw_only=MISSING):
-    if default is not MISSING and default_factory is not MISSING:
-        raise ValueError('cannot specify both default and default_factory')
-    return db_types.DbField(default, default_factory, init, repr, hash, compare, metadata, kw_only)
+        __cls_dict__ = getattr(new_cls, '__dict__')
+        setattr(new_cls, '__db_fields__', __db_fields__)
 
-@dataclasses.dataclass
+        for attr_name in __cls_dict__['__db_fields__']:
+            setattr(new_cls, attr_name, discriptor.DbAttributeDiscriptor(new_cls, attr_name))
+
+        cls.dict_classes.replace(new_cls)
+
+        required_params = []
+        optional_params = []
+
+        for field_name, field_value in __db_fields__.items():
+            is_required = False
+            if isinstance(field_value, db_types.DbField):
+                default = field_value.get_default()
+                if default is db_types.MISSING:
+                    is_required = True
+            else:
+                if field_value is db_types.MISSING:
+                    is_required = True
+
+            if is_required:
+                required_params.append(field_name)
+            else:
+                optional_params.append(f"{field_name}=db_types.NotSet")
+
+        params = required_params + optional_params
+        params_str = ', '.join(params)
+
+        init_code = (
+            f"def __init__(self, {params_str}, id:int=db_types.NotSet):\n"
+            "    now_locals = locals()\n"
+            "    if not self.__dbworkobj__.cheak_exists_id_table(self.__class__.__name__):\n"
+            "        self.__dbworkobj__.create_id_table(self.__class__.__name__)\n"
+            "    if isinstance(id, db_types.Id):\n"
+            "        id = id.Id\n"
+            "    if id is db_types.NotSet:\n"
+            "        id = self.__dbworkobj__.get_new_id(self.__class__.__name__)['data']\n"
+            "    else:\n"
+            "        self.__dbworkobj__.add_id(self.__class__.__name__, id)\n"
+            "    setattr(self, 'id', id)\n"
+            "    for name in __db_fields__:\n"
+            "        value = now_locals[name]\n"
+            "        if value is db_types.NotSet:\n"
+            "            continue\n"
+            "        if isinstance(value, db_types.Factory):\n"
+            "            setattr(self, name, value.get_value())\n"
+            "        else:\n"
+            "            setattr(self, name, value)\n"
+        )
+
+        exec_globals = {
+            'db_types': db_types,
+            '__db_fields__': __db_fields__
+        }
+        exec(init_code, exec_globals)
+        init_method = exec_globals['__init__']
+
+        new_cls.__init__ = init_method
+        cls.dict_classes.add(new_cls)
+
+        return new_cls
+
+    def __iter__(self):
+        return (self.get(id=i) for i in self.get_all_ids())
+
+
 class DbAttribute:
     id: int
-    _db_attribute__list_db_attributes: ClassVar[list] = []
-    _db_attribute__dbworkobj: ClassVar[db_work.Db_work] = None
+    __dbworkobj__: ClassVar[db_work.Db_work] = None
+    __max_repr_recursion_limit__: ClassVar[int] = 10
+    def __init__(self, *args, ID=None, **kwargs):
+        raise 'Need set metaclass=DbAttributeMetaclass'
+    def __repr__(self):
+        return self.__get_repr__(set())
+    def __get_repr__(self, Objs: set, now: int=0):
+        if now > self.__max_repr_recursion_limit__ or (self.id, self.__class__) in Objs:
+            return f'{self.__class__.__name__}(id={self.id}, ...)'
+        Objs.add((self.id, self.__class__))
+        return f'{self.__class__.__name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{getattr(self, i)}'}" for i in self.__db_fields__])})'
 
     def _db_attribute_container_update(self, key, data=None):
         """
@@ -106,16 +168,38 @@ class DbAttribute:
         """
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
-        if ('_'+key in self_dict) or (key not in cls.__dict__['_db_attribute__list_db_attributes']):
+        if ('_'+key in self_dict) or (key not in cls.__dict__['__db_fields__']):
             return
         cls.__dict__[key].container_update(self, data)
 
     @classmethod
     def _db_attribute_found_ids_by_attribute(cls, attribute_name:str, attribute_value):
-        tempdata = cls._db_attribute__dbworkobj.found_ids_by_value(class_name=cls.__name__, attribute_name=attribute_name, data=attribute_value, _cls_dbattribute=cls)
+        tempdata = cls.__dbworkobj__.found_ids_by_value(class_name=cls.__name__, attribute_name=attribute_name, data=attribute_value, _cls_dbattribute=cls)
         if tempdata['status_code'] != 200:
             return set()
         return tempdata['data']
+
+    @classmethod
+    def get(cls, id):
+        if isinstance(id, discriptor.Condition):
+            Ids = id.found()
+            if not Ids:
+                return None
+            id = Ids.list_ids[0]
+        if isinstance(id, db_types.Id):
+            id = id.Id
+        if isinstance(id, int) or isinstance(id, db_types.Id):
+            obj = cls.__new__(cls)
+            obj.id = id
+            return obj
+        return None
+
+    @classmethod
+    def get_all_ids(cls):
+        temp = cls.__dbworkobj__.get_all_ids(cls.__name__)
+        if temp['status_code'] != 200:
+            return db_types.Ids()
+        return db_types.Ids(temp['data'])
 
     def dump(self, attributes:set[str]=None):
         """
@@ -123,7 +207,7 @@ class DbAttribute:
         """
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
-        all_attributes = object.__getattribute__(self, '_db_attribute__list_db_attributes')
+        all_attributes = object.__getattribute__(self, '__db_fields__')
         for db_attr in all_attributes if attributes is None else all_attributes & attributes:
             if '_'+db_attr in self_dict:
                 cls.__dict__[db_attr].dump_attr(self)
@@ -135,7 +219,7 @@ class DbAttribute:
         function set undump_mode (dump_mode = False)
         :param attributes: for which attributes will set the mode, ex: atributes={'name', 'age'}
         """
-        all_attributes = object.__getattribute__(self, '_db_attribute__list_db_attributes')
+        all_attributes = object.__getattribute__(self, '__db_fields__')
         self_dict = object.__getattribute__(self, '__dict__')
         for db_attr in (all_attributes if attributes is None else all_attributes & attributes):
             self_dict['_'+db_attr] = getattr(self, db_attr)
@@ -149,7 +233,7 @@ class DbAttribute:
         """
         self.dump(attributes=attributes)
         self_dict = object.__getattribute__(self, '__dict__')
-        all_attributes = object.__getattribute__(self, '_db_attribute__list_db_attributes')
+        all_attributes = object.__getattribute__(self, '__db_fields__')
         for db_attr in all_attributes if attributes is None else all_attributes & attributes:
             if '_'+db_attr in self_dict:
                 del self_dict['_'+db_attr]
@@ -160,16 +244,16 @@ class DbAttribute:
         :param attributes: attributes to be deleted
         :return:
         """
-        all_attributes = object.__getattribute__(self, '_db_attribute__list_db_attributes')
+        all_attributes = object.__getattribute__(self, '__db_fields__')
         for db_attr in all_attributes if attributes is None else all_attributes & attributes:
             delattr(self, db_attr)
 
     @classmethod
     def delete_objs(cls, IDs: set[int] | int, attributes:set[str]=None):
-        all_attributes = object.__getattribute__(cls, '_db_attribute__list_db_attributes')
+        all_attributes = object.__getattribute__(cls, '__db_fields__')
         attributes = all_attributes if attributes is None else attributes & all_attributes
         IDs = {IDs} if isinstance(IDs, int) else IDs
-        dbworkobj = cls._db_attribute__dbworkobj
+        dbworkobj = cls.__dbworkobj__
         clsname = cls.__name__
         for ID in IDs:
             for db_attr in attributes:

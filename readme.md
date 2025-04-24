@@ -40,42 +40,30 @@ $ pip install git+https://github.com/shutkanos/Db-Attribute.git
 
 ## Create class
 
-For any class with DbAttribute you need
+For create any classes (Tables):
 
-* Inheritance the `DbAttribute.DbAttribute`
-* Use `@dataclasses.dataclass`
-* Use `@DbAttribute.dbDecorator`
-* Create any fields and db_fields for database
+* Set metaclass `DbAttributeMetaclass`
+* Inheritance the `DbAttribute` (optional, since it inherits automatically when using a metaclass)
+* Set dbworkobj for connect to database
+* Create any fields / Annotations / DbFields for database
 
 ```python
-from dataclasses import dataclass, field
-
-from db_attribute import dbDecorator, DbAttribute, db_field, db_work, connector
+from db_attribute import DbAttribute, DbAttributeMetaclass, db_work, connector
+from db_attribute.db_types import DbField
 
 connect_obj = connector.Connection(host=*mysqlhost*, user=*user*, password=*password*, database=*databasename*)
 db_work_obj = db_work.Db_work(connect_obj)
 
-@dbDecorator(dbworkobj=db_work_obj)
-@dataclass
-class User(DbAttribute):
-    other_dict_information: dict = field(default_factory=lambda: {}) #not save in db, only in RAM
-    name: str = db_field(default='NotSet')
-    age: int = db_field(default=-1)
-    ban: bool = db_field(default=False)
-    other_int_information: int = 100 #not save in db, only in RAM
-    list_of_books: list = db_field(default_factory=lambda: ['name of first book'])
-    sittings: dict = db_field(default_factory=lambda: {})
+class User(DbAttribute, metaclass=DbAttributeMetaclass, __dbworkobj__=db_work_obj):
+    name: str = DbField(default='NotSet') # Ok
+    age: int = -1 # Ok
+    ban = DbField(default=False) # Ok
+    other_int_information = 100 # Need annotation or DbField
+    list_of_books = DbField(default_factory=lambda: ['name of first book']) # Ok
+    sittings: dict = DbField(default_factory=lambda: {}) # Ok
 ```
 
-With `id` (in other cases, id inheritance from DbAttribute.DbAttribute)
-
-```python
-@dbDecorator(dbworkobj=*db work obj*)
-@dataclass
-class User(DbAttribute):
-    id: int
-    #other code
-```
+Each class object has its own `id`. It is inherited from DbAttribute and stored in __dict__
 
 ## Work with obj
 
@@ -88,7 +76,7 @@ obj = User(id=3) # other field set to defaults value
 print(obj) # User(id=3, name=*default value*)
 ```
 ```python
-obj = User(id=3, name='Ben')
+obj = User(name='Ben', id=3)
 print(obj) # User(id=3, name='Ben')
 ```
 
@@ -96,19 +84,19 @@ print(obj) # User(id=3, name='Ben')
 If Developer need recreated obj, he can call DbAttribute cls with id.
 
 ```python
-obj = User(3, name='Ben', age=10) #insert obj to db
+obj = User(name='Ben', age=10, id=3) #insert obj to db
 print(obj) #User(id=3, name='Ben', age=10)
 
-obj = User(3)
+obj = User(id=3)
 print(obj) #User(id=3, name='Ben', age=10)
 
-obj = User(3, 'Anna')
+obj = User('Anna', id=3)
 print(obj) #User(id=3, name='Anna', age=10)
 
-obj = User(id=3, age=15)
+obj = User(age=15, id=3)
 print(obj) #User(id=3, name='Anna', age=15)
 
-obj = User(3)
+obj = User(id=3)
 print(obj) #User(id=3, name='Anna', age=15)
 ```
 
@@ -116,45 +104,28 @@ print(obj) #User(id=3, name='Anna', age=15)
 
 ```python
 #create objs
-obj = User(id=1, name='Bob', age=3)
-obj = User(id=2, name='Bob', age=2)
-obj = User(id=3, name='Anna', age=2)
+obj = User(name='Bob', age=3, id=1)
+obj = User(name='Bob', age=2, id=2)
+obj = User(name='Anna', age=2, id=3)
 #finds objs
-print(User(name='Bob', age=3).id) #1
-print(User(name='Anna').id) #3
-print(User(name='Bob').id) #error, a lot of obj found
-print(User(name='Other name').id) #error, no obj found
-```
-Or
-```python
-obj = User(id=1, name='Camel', age=1)
-obj = User(id=2, name='Bob', age=2)
-obj = User(id=3, name='Anna', age=3)
-
-print(User(User.age == 2)) #User(id=2, name='Bob', age=2)
-print(User(User.age < 2)) #User(id=1, name='Camel', age=1)
-print(User(User.name < 'Bob')) #User(id=3, name='Anna', age=3)
-print(User(User.name._like('A%'))) #User(id=3, name='Anna', age=3)
-
-print(User.age > 1) #{2, 3}
-print(User.name > 'A') #{1, 2, 3}
-print(User.name > 'Anna') #{1, 2}
-
-print(User.name._like('%a%')) #{1, 3}, see Like in sql
+print(User.get(User.name == 'Bob' and User.age == 3).id) #1
+print(User.get(User.name == 'Anna').id) #3
+print(User.get(User.name == 'Bob').id) #error, a lot of obj found
+print(User.get(User.name == 'Other name').id) #error, no obj found
 ```
 
 ### Change attribute of obj
 
 ```python
-obj = User(id=1, name='Bob', list_of_books=[])
+obj = User(name='Bob', list_of_books=[], id=1)
 
 print(obj) #User(id=1, name='Bob', list_of_books=[])
 
 obj.name = 'Anna'
-obj.sittings.append('Any name of book')
+obj.list_of_books.append('Any name of book')
 
 print(obj) #User(id=1, name='Anna', list_of_books=['Any name of book'])
-print(obj.sittings[0]) #Any name of book
+print(obj.list_of_books[0]) #Any name of book
 print(obj.name) #Anna
 ```
 
@@ -215,31 +186,29 @@ user.set_auto_dump_mode()
 Developer can set the Db attribute class as data type for another Db attribute class
 
 ```python
-from db_attribute.db_types import DbAttributeType
+from db_attribute.db_types import TableType
 
-*decorators*
-class Class_A(DbAttribute):
-    obj_b: DbAttributeType('Class_B')
+class Class_A(DbAttribute, metaclass=DbAttributeMetaclass, __dbworkobj__=db_work_obj):
+    obj_b: TableType('Class_B')
 
-*decorators*
-class Class_B(DbAttribute):
+class Class_B(DbAttribute, metaclass=DbAttributeMetaclass, __dbworkobj__=db_work_obj):
     obj_a: Class_A
 ```
 For create obj:
 ```python
-obj = Class_A(id=15, name='Anna', obj_b=1)
-obj = Class_B(id=1, name='Bob', obj_a=15)
-print(obj.obj_a.name) #Anna
+obj_a = Class_A(id=15, name='Anna', obj_b=1)
+obj_b = Class_B(id=1, name='Bob', obj_a=15)
+print(obj_b.obj_a.name) #Anna
 #or
-obj = Class_A(id=15, name='Anna', obj_b=obj)
-print(obj.obj_b.name) #Bob
+obj_a = Class_A(id=15, name='Anna', obj_b=obj_b)
+print(obj_a.obj_b.name) #Bob
 ```
 For found obj:
 ```python
 obj = Class_B(id=1, name='Bob')
-obj = Class_A(obj_a=obj)
+obj = Class_A.get(Class_A.obj_a==obj)
 print(obj.name) #Anna
-obj = Class_A(obj_a=1)
+obj = Class_A.get(Class_A.obj_a==1)
 print(obj.name) #Anna
 ```
 
@@ -271,12 +240,10 @@ Db attribute support `tuple`, `list`, `dict`, other collections, but this types 
 To solve this problem, use a Json convertation
 
 ```python
-from db_attribute.db_types import JsonType
+from db_attribute.db_types import JsonType, DbField
 
-@dbDecorator(dbworkobj=*db work obj*)
-@dataclass
-class User(DbAttribute):
-    sittings: JsonType = db_field()
+class User(DbAttribute, metaclass=DbAttributeMetaclass, __dbworkobj__=db_work_obj):
+    sittings: JsonType = DbField(default_factory=lambda: {})
 
 obj = User(1, sittings={1: 2, 3: [4, 5]})
 print(obj.sittings)  # {'1': 2, '3': [4, 5]}

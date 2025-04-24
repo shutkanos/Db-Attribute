@@ -13,7 +13,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='db_attribute',
-    version='1.3',
+    version='2.0',
     description='DataBase atribute package',
     long_description=long_description,
     url='https://github.com/shutkanos/Db-Attribute',
@@ -32,7 +32,7 @@ setup(
         'Programming Language :: Python :: 3',
     ],
 
-    keywords='db datebase attribute dbattribute db_attribute databaseattribute auto_attribute',
+    keywords='db database attribute dbattribute db_attribute databaseattribute auto_attribute',
     packages=find_packages(),
 
     install_requires=required,
