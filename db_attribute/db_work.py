@@ -339,7 +339,7 @@ if __name__ == '__main__':
     connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
     db_work_obj = Db_work(connect_obj)
     #print(db_work_obj.tables)
-    #for i in db_work_obj.class_names['user']:
+    #for i in db_work_obj.tables:
         #db_work_obj._deleate_table(i)
         #print(i)
 

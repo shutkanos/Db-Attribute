@@ -79,6 +79,13 @@ class User(DbAttribute, metaclass=DbAttributeMetaclass):
     class Meta:
         __dbworkobj__ = db_work_obj
 ```
+```python
+class BaseMeta:
+    __dbworkobj__ = dbworkobj
+class User(DbAttribute, metaclass=DbAttributeMetaclass):
+    class Meta(BaseMeta):
+        pass
+```
 
 All options:
 

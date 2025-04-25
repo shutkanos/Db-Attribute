@@ -29,7 +29,8 @@ class DbAttributeMetaclass(type):
             __annotations__ |= getattr(i, '__annotations__', {})
             Meta = getattr(i, 'Meta', None)
             if Meta is not None:
-                __meta_options__ |= getattr(Meta, '__dict__', {})
+                for i in Meta.__mro__[::-1]:
+                    __meta_options__ |= getattr(i, '__dict__', {})
 
         for i in __dict__:
             if i in options:
