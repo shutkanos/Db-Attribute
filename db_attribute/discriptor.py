@@ -84,8 +84,10 @@ class Condition(ConditionCore):
         return self.lambda_operator(left, right)
 
     def _get_condition_repr(self):
-        left = self.left._get_condition_repr() if isinstance(self.left, ConditionCore) else self.left.id if isinstance(self.left, db_attribute.DbAttribute) else self.left
-        right = self.right._get_condition_repr() if isinstance(self.right, ConditionCore) else self.right.id if isinstance(self.right, db_attribute.DbAttribute) else self.right
+        temp = db_work.convert_attribute_value_to_mysql_value(self.left, type(self.left))
+        left = temp['data']
+        temp = db_work.convert_attribute_value_to_mysql_value(self.right, type(self.right))
+        right = temp['data']
         return f'({left} {self.operator} {right})'
 
     def __repr__(self):

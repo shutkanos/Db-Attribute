@@ -40,6 +40,8 @@ def convert_attribute_value_to_mysql_value(attribute_value, attribute_type):
         return {'status_code': 200, 'data': json.dumps(attribute_value, ensure_ascii=False)}
     if attribute_type is dbtypes.JsonType:
         return {'status_code': 200, 'data': json.dumps(json.dumps(attribute_value))}
+    if issubclass(attribute_type, db_attribute.discriptor.ConditionCore):
+        return {'status_code': 200, 'data': attribute_value._get_condition_repr()}
     if issubclass(attribute_type, db_attribute.DbAttribute):
         if type(attribute_value) is int:
             return {'status_code': 200, 'data': f'{attribute_value}'}
