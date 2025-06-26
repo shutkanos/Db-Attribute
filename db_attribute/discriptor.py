@@ -22,9 +22,9 @@ class ConditionCore:
     def __add__(self, other):
         return Condition(self.cls, self, other, '+', lambda a, b: a + b)
     def __mul__(self, other):
-        return Condition(self.cls, self, other, '+', lambda a, b: a + b)
+        return Condition(self.cls, self, other, '*', lambda a, b: a * b)
     def __sub__(self, other):
-        return Condition(self.cls, self, other, '+', lambda a, b: a + b)
+        return Condition(self.cls, self, other, '-', lambda a, b: a - b)
     def __truediv__(self, other):
         return Condition(self.cls, self, other, '/', lambda a, b: a / b)
     def __mod__(self, other):

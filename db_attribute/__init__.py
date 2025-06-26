@@ -182,6 +182,12 @@ class DbAttribute:
 
     @classmethod
     def get(cls, id):
+        """
+        return the one object with this id or None, if it's obj is not found
+        :param id:
+        :type id: int | db_types.Id | discriptor.Condition
+        :return: obj | None
+        """
         if isinstance(id, discriptor.Condition):
             Ids = id.found()
             if not Ids:
@@ -204,7 +210,7 @@ class DbAttribute:
 
     def dump(self, attributes:set[str]=None):
         """
-        use it func, if you need dump the data to db, with manual_dump_mode
+        Use it func, if you need dump the data to db, with manual_dump_mode
         """
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
@@ -242,7 +248,7 @@ class DbAttribute:
     def delete(self, attributes:set[str]=None):
         """
         Delete this id from db
-        :param attributes: attributes to be deleted
+        :param attributes: attributes to be deleted, ex: obj.delete({'name', 'age'})
         :return:
         """
         all_attributes = object.__getattribute__(self, '__db_fields__')
@@ -263,12 +269,13 @@ class DbAttribute:
     @classmethod
     def found(cls, **kwargs):
         """
-        this function not used, use 'cls.attr == value'
+        WARNING: This function has lost its relevance and is not supported. Use '(cls.attr == value).found()' or 'cls.get(cls.attr == value)'
+
         found ids objs with this values of attributes, ex:
         objs: User(id=1, name='Bob', age=3), User(id=2, name='Bob', age=2), User(id=3, name='Anna', age=2)
-        User.db_attribute_found_ids_by_attributes(name='Bob') -> {1, 2}
-        User.db_attribute_found_ids_by_attributes(age=2) -> {2, 3}
-        User.db_attribute_found_ids_by_attributes(name='Bob', age=2) -> {2}
+        User.found(name='Bob') -> {1, 2}
+        User.found(age=2) -> {2, 3}
+        User.found(name='Bob', age=2) -> {2}
         :param kwargs: names and values of attributes (see doc.)
         :return: set of ids
         """
