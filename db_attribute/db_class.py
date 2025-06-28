@@ -40,7 +40,7 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
     Use DbClassDecorator for
     1) set cls._standart_class (example: for DbList standart class is list)
     2) automatic create __setitem__, __delitem__, __setattr__, __delattr__, __iadd__, __isub__, __imul__, __imatmul__, __ipow__, __idiv__, __ifloordiv__, __itruediv__, __ilshift__, __irshift__, __imod__, __ior__, __iand__, __ixor__
-    (DbClassDecorator not created __add__, __sub__ and other methodes!)
+    (DbClassDecorator not created __add__, __sub__, __mul__ and other methodes!)
     If a class has any methods (example: __iadd__), these methods are not replaced.
     But if the parent class has these methods, they will be replaced.
     So use the list_of_non_replaceable_methodes to set a list of non-replaceable methods
@@ -153,13 +153,16 @@ class DbClass:
 
     def dumps(self, _return_json=True):
         """
-        key 't': type - type of this obj, example: {'t': DbList, 'd': [1, 2, 3]}
-        key 'd': data - main data,
-        example1 (DbDict): {'t': DbDict, 'd': {'0': 1, '1': 2, '2': 3}, 'dk': {'0': 'int', '1': 'int', '2': 'int'}}
-        example2 (Develp's Db class): {'t': DbUserClass, 'd': {'name': *name*, 'age': *age*, 'books': *jsonDbList*}}
+        If you create dumps methode for your class, yours methode must return the dict object with keys:
+        key 't': type - type of this obj, example: {'t': 'DbList', 'd': [1, 2, 3]} (required key).
+        key 'd': data - main data (if you realeseted loads methode, tou can rename this key: use 'd'/'data' and other, it doesn't matter),
+        example1 (DbDict): {'t': 'DbDict', 'd': {'0': 1, '1': 2, '2': 3}, 'dk': {'0': 'int', '1': 'int', '2': 'int'}}
+        example2 (Develp's Db class): {'t': 'DbUserClass', 'd': {'name': *name*, 'age': *age*, 'books': *jsonDbList*}}
         *and others keys | Develop's keys*
         key 'dk': data key (used DbDict)
-        Develop ken create his own keys in dump, and use in load
+        Develop ken create his own keys in dump, and use in load - all dict object dump and load, with json
+        required param: _return_json - see documentation
+        :param _return_json: if false - return dict, if true - return str: json.dumps(dict)
         """
         data = pickle.dumps(self).decode('latin1')
         if _return_json:
@@ -169,24 +172,17 @@ class DbClass:
     @classmethod
     def loads(cls, tempdata: str | dict, *, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         """
-        if you create loads methode in tour 'Db class', type(tempdata) is dict (not str)
-        please, in first line write:
-        'if _call_the_super: return DbClass.loads(tempdata, _call_the_super=_call_the_super, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)'
-        because
-        1) the DbClass.loads call the loads func if the tempdata['t'] is your class
-        example: your class is 'DbMyClass', but tempdata is {'t': 'DbOtherClass', ...},
-        and the DbClass.loads don't call the DbMyClass.loads, it's call the DbOtherClass.loads(tempdata, _call_the_super=False, ...)
-        2) the DbClass.loads replace tempdata for json.loads(tempdata), if isinstance(tempdata, str)
-        example: tempdata = '{...}' (not {...})
-
-        for create loads methode you can:
-        1) see the loads methodes of DbList, DbDict, DbDatetime and other...
-        2) it's all :) what you do? you read this? who are you? How many the time you can the spent for documentation?
-        Did you know that this documentation is already outdated by several versions? xD
-        Anecdote: a programmer once created a function and its documentation. After several versions, the function has completely changed, and the documentation is outdated. And then another programmer who reads this anecdote got confused about this documentation, because it is no longer relevant.
+        (the use of these parameters (_obj_dbattribute, _name_attribute and _first_container) is not intended - they are used inside the project.)
+        If you need to create a "loads" method, please give it the name "_loads".
+        For create loads methode you can:
+        1) see the _loads methodes of DbList, DbDict, DbDatetime and other... (for example)
+        2) It's all :) What do you do? Do you read this? Who are you? How much time do you spend on documentation?
+        Did you know that this documentation is already outdated by several versions?
+        An anecdote: A programmer once created a function and wrote its documentation.
+        After a few versions, the function changed completely, and the documentation became outdated.
+        Another programmer read the anecdote and was confused about the documentation, as it was no longer relevant.
 
         :param tempdata: the dumps obj, example: tempdata = {'t': DbList, 'd': [1, 2, 3]}, or json.loads(tempdata) = {'t': DbList, 'd': [1, 2, 3]}
-        :param _call_the_super: uses, when the DbClass call the loads func from tempdata['t'] (cls of dumps obj)
         :param _obj_dbattribute: link to dbattribute obj
         :param _name_attribute: name this attribute
         :param _first_container: link to 'first container', example: a = [1, [2]] for [2] the 'first container' the [1, [2]]
@@ -324,18 +320,6 @@ class DbDict(DbClass, dict):
             setitem = dict.__setitem__
             for key in self:
                 setitem(self, key, cheaker.create_db_class(self[key], _first_container=_first_container))
-        """
-        if kwargs:
-            iterable = dict(args[0]) | kwargs
-            if _convert_arguments:
-                iterable = {key: cheaker.create_db_class(iterable[key], _first_container=self._first_container) for key in iterable}
-            dict.__init__(self, iterable)
-        else:
-            if _convert_arguments:
-                iterable = dict(args[0]) | kwargs
-                dict.__init__(self, {key: cheaker.create_db_class(iterable[key], _first_container=self._first_container) for key in iterable})
-            else:
-                dict.__init__(self, args[0])"""
 
     @classmethod
     def __convert_obj__(cls, obj: dict, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
