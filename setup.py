@@ -13,7 +13,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='db_attribute',
-    version='2.0.1',
+    version='2.0.2',
     description='DataBase atribute package',
     long_description=long_description,
     url='https://github.com/shutkanos/Db-Attribute',

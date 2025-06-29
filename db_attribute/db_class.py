@@ -221,16 +221,24 @@ class DbList(DbClass, list):
             self.__convert_arguments__()
 
     @classmethod
-    def __convert_obj__(cls, obj: list, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+    def __convert_to_db__(cls, obj: list, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        """Converted obj to db object: changed type from list to DbList (you can create yourclass method '__convert_to_db__')"""
         if isinstance(obj, Tlist):
-            #I don't know wtf is this, please, don't use it
             obj.__class__ = cls
             DbClass.__init__(obj, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
             obj.__convert_arguments__()
             return obj
         return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
+    def __convert_from_db__(self):
+        """
+        Currently, this method is not implemented and is not supported. However, we plan to implement and support it in future updates.
+        Converted db object to object: changed type from DbList to list (you can create yourclass method '__convert_from_db__')
+        """
+        return NotImplemented
+
     def __convert_arguments__(self):
+        """Only DbList uses this method"""
         _first_container = self._first_container
         setitem = list.__setitem__
         for key in range(len(self)):
@@ -284,7 +292,7 @@ class DbSet(DbClass, set):
         return set(self).__repr__()
 
     @classmethod
-    def __convert_obj__(cls, obj: set, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+    def __convert_to_db__(cls, obj: set, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     @MethodDecorator
@@ -330,7 +338,7 @@ class DbDict(DbClass, dict):
                 setitem(self, key, cheaker.create_db_class(self[key], _first_container=_first_container))
 
     @classmethod
-    def __convert_obj__(cls, obj: dict, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+    def __convert_to_db__(cls, obj: dict, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     @MethodDecorator
@@ -393,7 +401,7 @@ class DbTuple(DbClass, tuple):
         return obj
 
     @classmethod
-    def __convert_obj__(cls, obj: tuple, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+    def __convert_to_db__(cls, obj: tuple, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     def dumps(self, _return_json=True):
@@ -423,7 +431,7 @@ class DbDeque(DbClass, collections.deque):
         collections.deque.__init__(self, iterable)
 
     @classmethod
-    def __convert_obj__(cls, obj: collections.deque, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+    def __convert_to_db__(cls, obj: collections.deque, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         return cls(obj, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator
@@ -441,7 +449,7 @@ class DbDatetime(DbClass, datetime.datetime):
         return obj
 
     @classmethod
-    def __convert_obj__(cls, obj: datetime.datetime, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+    def __convert_to_db__(cls, obj: datetime.datetime, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         return cls(year=obj.year, month=obj.month, day=obj.day, hour=obj.hour, minute=obj.minute, second=obj.second, microsecond=obj.microsecond, tzinfo=obj.tzinfo, fold=obj.fold, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     def dumps(self, _return_json=True):
@@ -450,7 +458,7 @@ class DbDatetime(DbClass, datetime.datetime):
 
     @classmethod
     def _loads(cls, tempdata: dict, *, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
-        return cls.__convert_obj__(cls.fromisoformat(tempdata['d']), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        return cls.__convert_to_db__(cls.fromisoformat(tempdata['d']), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator
 class DbDate(DbClass, datetime.date):
@@ -466,14 +474,14 @@ class DbDate(DbClass, datetime.date):
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
         return obj
     @classmethod
-    def __convert_obj__(cls, obj: datetime.datetime, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+    def __convert_to_db__(cls, obj: datetime.datetime, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         return cls(year=obj.year, month=obj.month, day=obj.day, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
     def dumps(self, _return_json=True):
         if _return_json: return json.dumps({'t': self.__class__.__name__, 'd': self.isoformat()})
         return {'t': self.__class__.__name__, 'd': self.isoformat()}
     @classmethod
     def _loads(cls, tempdata: dict, *, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
-        return cls.__convert_obj__(cls.fromisoformat(tempdata['d']), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        return cls.__convert_to_db__(cls.fromisoformat(tempdata['d']), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator
 class DbTime(DbClass, datetime.time):
@@ -491,7 +499,7 @@ class DbTime(DbClass, datetime.time):
         return obj
 
     @classmethod
-    def __convert_obj__(cls, obj: datetime.time, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+    def __convert_to_db__(cls, obj: datetime.time, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         return DbTime(hour=obj.hour, minute=obj.minute, second=obj.second, microsecond=obj.microsecond, tzinfo=obj.tzinfo, fold=obj.fold, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
     def dumps(self, _return_json=True):
@@ -499,7 +507,7 @@ class DbTime(DbClass, datetime.time):
         return {'t': self.__class__.__name__, 'd': self.isoformat()}
     @classmethod
     def _loads(cls, tempdata: dict, *, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
-        return cls.__convert_obj__(cls.fromisoformat(tempdata['d']), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        return cls.__convert_to_db__(cls.fromisoformat(tempdata['d']), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator
 class DbTimedelta(DbClass, datetime.timedelta):
@@ -586,8 +594,8 @@ class Cheaker:
             if attribute_type is None:
                 attribute_type = type(obj)
             cls = self._db_classes[attribute_type]
-            if hasattr(cls, '__convert_obj__'):
-                return cls.__convert_obj__(obj, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+            if hasattr(cls, '__convert_to_db__'):
+                return cls.__convert_to_db__(obj, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
             reductor = getattr(obj, "__reduce_ex__", None)
             if reductor is not None:
                 rv = reductor(4)

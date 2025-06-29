@@ -7,7 +7,7 @@ import db_attribute.connector as connector
 import db_attribute.discriptor as discriptor
 
 __all__ = ['DbAttribute', 'DbAttributeMetaclass', 'db_work', 'db_class', 'discriptor', 'connector', 'db_types']
-__version__ = '2.0.1'
+__version__ = '2.0.2'
 
 class DbAttributeMetaclass(type):
     dict_classes = db_types.DictClasses()

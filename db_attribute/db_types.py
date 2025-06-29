@@ -137,7 +137,7 @@ def _created_db_class(cls):
             object.__setattr__(self, 'class_name', class_name)
 
         @classmethod
-        def __convert_obj__(cls, obj: db_attribute.DbAttribute, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        def __convert_to_db__(cls, obj: db_attribute.DbAttribute, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
             return cls(class_name=obj.__class__.__name__, id=obj.id, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
         def dumps(self, _return_json=True):
