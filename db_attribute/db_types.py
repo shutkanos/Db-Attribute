@@ -1,4 +1,8 @@
-import collections
+import collections, json
+
+import db_attribute
+
+db_class = db_attribute.db_class
 
 class _NotSetMetaClass(type):
     def __repr__(cls):
@@ -84,12 +88,20 @@ class TableObject:
         return f'temp type of {self.name_cls} class'
 
 class DictClasses:
+    """
+    DictClasses is used to store DbAttribute classes.
+    It replaces the TableType and TableObject classes, which use a string to define these classes.
+    Created DbContainer for classes (for saved in DbList, DbDict and other).
+    :argument data: main data store. Example: {'User': User, 'Book': Book}
+    """
     def __init__(self):
         self.data = dict()
         self.needdata = collections.defaultdict(set)
+        self.db_containers = dict()
 
     def add(self, cls):
         self.data[cls.__name__] = cls
+        self.db_containers[cls.__name__] = _created_db_class(cls)
         for othercls in self.needdata.get(cls.__name__, []):
             self.replace(othercls)
         if cls.__name__ in self.needdata:
@@ -115,7 +127,32 @@ class DictClasses:
                 else:
                     self.needdata[value.name_cls].add(cls)
 
-dict_classes = DictClasses()
+def _created_db_class(cls):
+    @db_class.DbClassDecorator
+    class ContainerDbAttribute(db_class.DbClass, cls, need_DbAttributeMetaclass=False, __repr_class_name__=cls.__name__):
+        def __init__(self, class_name: str, id: int = NotSet, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
+            #print(class_name, id)
+            super().__init__(*args, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
+            object.__setattr__(self, 'id', id)
+            object.__setattr__(self, 'class_name', class_name)
+
+        @classmethod
+        def __convert_obj__(cls, obj: db_attribute.DbAttribute, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+            return cls(class_name=obj.__class__.__name__, id=obj.id, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+
+        def dumps(self, _return_json=True):
+            if _return_json: return json.dumps({'t': self.__class__.__name__, 'i': self.id, 'n': self.class_name})
+            return {'t': self.__class__.__name__, 'i': self.id, 'n': self.class_name}
+
+        @classmethod
+        def _loads(cls, tempdata: dict, *, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+            need_cls = db_attribute.DbAttributeMetaclass.dict_classes.db_containers[tempdata['n']]
+            return need_cls(class_name=tempdata['n'], id=tempdata['i'], _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+
+    db_class.cheaker.add_db_class((cls, ContainerDbAttribute))
+    return ContainerDbAttribute
+
+#dict_classes = DictClasses()
 
 if __name__ == "__main__":
     Field = DbField(default_factory=lambda:10)

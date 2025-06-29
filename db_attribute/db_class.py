@@ -35,7 +35,7 @@ def MethodDecorator(func=None, /, convert_arguments=True, call_the_decoreted_fun
         return wrap(func)
     return wrap
 
-def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, convert_arguments_changes_methodes=True, list_of_non_replaceable_methodes=None, list_of_methodes_with_converted_arguments=None):
+def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, convert_arguments_changes_methodes=True, list_of_non_replaceable_methodes=None, list_of_methodes_with_converted_arguments=None, methode__new__needs_arguments=False):
     """
     Use DbClassDecorator for
     1) set cls._standart_class (example: for DbList standart class is list)
@@ -60,6 +60,8 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
             if ind + 1 == len(cls.__mro__):
                 raise f'The DbClass the last in {cls}.__mro__, please set _standart_class, or add perent to class'
             cls._standart_class = cls.__mro__[ind + 1]
+        if cls.__dict__.get('_methode__new__needs_arguments', None) is None:
+            cls._methode__new__needs_arguments = methode__new__needs_arguments
 
         def getimethod(truefunc, namefunc=''):
             convert_arguments = convert_arguments_ioperation_methodes
@@ -113,13 +115,19 @@ class DbClass:
     _name_attribute = None
     _first_container = None
     _call_init_when_reconstruct = False
+    _methode__new__needs_arguments = False
 
     def __new__(cls, *args, _use_db=False, _obj_dbattribute=None, _convert_arguments=True, _name_attribute=None, _first_container=None, **kwargs):
         if not _use_db:
-            obj = cls._standart_class.__new__(cls._standart_class, *args, **kwargs)
+            if cls._methode__new__needs_arguments:
+                obj = cls._standart_class.__new__(cls._standart_class, *args, **kwargs)
+            else:
+                obj = cls._standart_class.__new__(cls._standart_class)
             obj.__init__(*args, **kwargs)
             return obj
-        return cls._standart_class.__new__(cls, *args, **kwargs)
+        if cls._methode__new__needs_arguments:
+            return cls._standart_class.__new__(cls, *args, **kwargs)
+        return cls._standart_class.__new__(cls)
 
     def __init__(self, *args, _use_db=False, _obj_dbattribute=None, _convert_arguments=True, _name_attribute=None, _first_container=None, _call_init=True, **kwargs):
         if _obj_dbattribute:
@@ -205,19 +213,17 @@ class DbClass:
 
 @DbClassDecorator(list_of_methodes_with_converted_arguments=['__iadd__'])
 class DbList(DbClass, list):
+    _methode__new__needs_arguments = True
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
         super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False)
         list.__init__(self, *args, **kwargs)
         if _convert_arguments:
             self.__convert_arguments__()
-        """iterable = args[0]
-        if _convert_arguments:
-            iterable = [cheaker.create_db_class(i, _first_container=self._first_container) for i in iterable]
-        list.__init__(self, iterable)"""
 
     @classmethod
     def __convert_obj__(cls, obj: list, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         if isinstance(obj, Tlist):
+            #I don't know wtf is this, please, don't use it
             obj.__class__ = cls
             DbClass.__init__(obj, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
             obj.__convert_arguments__()
@@ -265,6 +271,7 @@ class DbList(DbClass, list):
 @DbClassDecorator(list_of_methodes_with_converted_arguments=['__ior__', '__iand__'])
 class DbSet(DbClass, set):
     _call_init_when_reconstruct = True
+    _methode__new__needs_arguments = True
 
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
         super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False)
@@ -312,6 +319,7 @@ class DbSet(DbClass, set):
 
 @DbClassDecorator(list_of_methodes_with_converted_arguments=['__ior__'])
 class DbDict(DbClass, dict):
+    _methode__new__needs_arguments = True
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
         super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False)
         dict.__init__(self, *args, **kwargs)
@@ -354,6 +362,7 @@ class DbDict(DbClass, dict):
 
 @DbClassDecorator
 class DbTuple(DbClass, tuple):
+    _methode__new__needs_arguments = True
     _call_init_when_reconstruct = True
     def __new__(cls, *args, _use_db=False, _loads_iterable=False, _obj_dbattribute=None, _convert_arguments=True, _name_attribute=None, _first_container=None, **kwargs):
         if not _use_db:
@@ -404,6 +413,7 @@ class Dbfrozenset(DbClass, frozenset): pass
 
 @DbClassDecorator
 class DbDeque(DbClass, collections.deque):
+    _methode__new__needs_arguments = True
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
         super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False)
 
@@ -418,6 +428,7 @@ class DbDeque(DbClass, collections.deque):
 
 @DbClassDecorator
 class DbDatetime(DbClass, datetime.datetime):
+    _methode__new__needs_arguments = True
     def __init__(self, year, month=None, day=None, hour=0, minute=0, second=0, microsecond=0, tzinfo=None, *, fold=0, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
         super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
     def __iadd__(self, other):
@@ -443,6 +454,7 @@ class DbDatetime(DbClass, datetime.datetime):
 
 @DbClassDecorator
 class DbDate(DbClass, datetime.date):
+    _methode__new__needs_arguments = True
     def __init__(self, year, month=None, day=None, *, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
         super().__init__(year=year, month=month, day=day, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
     def __iadd__(self, other):
@@ -465,6 +477,7 @@ class DbDate(DbClass, datetime.date):
 
 @DbClassDecorator
 class DbTime(DbClass, datetime.time):
+    _methode__new__needs_arguments = True
     def __init__(self, hour=0, minute=0, second=0, microsecond=0, tzinfo=None, *, fold=0, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
         super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
 
@@ -490,6 +503,7 @@ class DbTime(DbClass, datetime.time):
 
 @DbClassDecorator
 class DbTimedelta(DbClass, datetime.timedelta):
+    _methode__new__needs_arguments = True
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
         super().__init__(*args, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
 
@@ -537,7 +551,7 @@ class Cheaker:
         self.all_db_classes = set(_db_classes.values())
 
     def add_db_class(self, _db_class: tuple):
-        """:param _db_class: example: (datetime.datetime: DbDatetime)"""
+        """:param _db_class: example: (datetime.datetime, DbDatetime)"""
         self._db_classes[_db_class[0]] = _db_class[1]
         self.db_class_name_to_db_class[_db_class[1].__name__] = _db_class[1]
         self.class_name_to_db_class[_db_class[0].__name__] = _db_class[1]

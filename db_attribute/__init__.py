@@ -12,11 +12,19 @@ __version__ = '2.0.1'
 class DbAttributeMetaclass(type):
     dict_classes = db_types.DictClasses()
     def __new__(cls, name, bases, namespace, **kwargs):
-        if DbAttribute not in bases:
+        def cheak_class_in_bases(bases, Class):
+            for i in bases:
+                if Class in i.__mro__:
+                    return True
+            return False
+
+        if not cheak_class_in_bases(bases, DbAttribute):
             bases = (DbAttribute,) + bases
+
         new_cls = super().__new__(cls, name, bases, namespace)
 
-        options = {'__dbworkobj__': db_types.NotSet, '__max_repr_recursion_limit__': 10}
+        params_for_metaclass = {'need_add_this_class_to_dict_classes': True, 'need_DbAttributeMetaclass': True}
+        options = {'__dbworkobj__': db_types.NotSet, '__max_repr_recursion_limit__': 10, '__repr_class_name__': db_types.NotSet}
 
         __annotations__ = {}
         __dict__ = {}
@@ -35,17 +43,32 @@ class DbAttributeMetaclass(type):
         for i in __dict__:
             if i in options:
                 options[i] = __dict__[i]
+            if i in params_for_metaclass:
+                params_for_metaclass[i] = kwargs[i]
 
         for i in __meta_options__:
             if i in options:
                 options[i] = __meta_options__[i]
+            if i in params_for_metaclass:
+                params_for_metaclass[i] = kwargs[i]
 
         for i in kwargs:
             if i in options:
                 options[i] = kwargs[i]
+            if i in params_for_metaclass:
+                params_for_metaclass[i] = kwargs[i]
+
+        if not params_for_metaclass['need_DbAttributeMetaclass']:
+            return new_cls
+
+        new_cls.__repr_class_name__ = name
 
         for i in options:
-            setattr(new_cls, i, options[i])
+            if options[i] is not db_types.NotSet:
+                setattr(new_cls, i, options[i])
+
+        if getattr(new_cls, '__dbworkobj__', None) is None:
+            raise Exception(f'The "{new_cls.__name__}" class dosn\'t have "__dbworkobj__" parameter: set "__dbworkobj__" or "Meta", see documentation')
 
         attr_names = list(__annotations__.keys())
         set_attr_names = set(attr_names)
@@ -109,19 +132,22 @@ class DbAttributeMetaclass(type):
         params_str = ', '.join(params)
 
         init_code = (
-            f"def __init__(self, {params_str}, id:int=db_types.NotSet):\n"
+            f"def __init__(self, {params_str}, id:int=db_types.NotSet, _dont_add_id:bool = False):\n"
             "    now_locals = locals()\n"
+            "    used_keys = now_locals\n"
+            "    for i in ['self', 'id', '_dont_add_id']:\n"
+            "        used_keys.pop(i)\n"
             "    if not self.__dbworkobj__.cheak_exists_id_table(self.__class__.__name__):\n"
             "        self.__dbworkobj__.create_id_table(self.__class__.__name__)\n"
             "    if isinstance(id, db_types.Id):\n"
             "        id = id.Id\n"
             "    if id is db_types.NotSet:\n"
             "        id = self.__dbworkobj__.get_new_id(self.__class__.__name__)['data']\n"
-            "    else:\n"
+            "    elif not (_dont_add_id and len([i for i in used_keys if used_keys[i] is not db_types.NotSet]) == 0):\n"
             "        self.__dbworkobj__.add_id(self.__class__.__name__, id)\n"
             "    setattr(self, 'id', id)\n"
             "    for name in __db_fields__:\n"
-            "        value = now_locals[name]\n"
+            "        value = used_keys[name]\n"
             "        if value is db_types.NotSet:\n"
             "            continue\n"
             "        if isinstance(value, db_types.Factory):\n"
@@ -138,7 +164,8 @@ class DbAttributeMetaclass(type):
         init_method = exec_globals['__init__']
 
         new_cls.__init__ = init_method
-        cls.dict_classes.add(new_cls)
+        if params_for_metaclass['need_add_this_class_to_dict_classes']:
+            cls.dict_classes.add(new_cls)
 
         return new_cls
 
@@ -150,15 +177,17 @@ class DbAttribute:
     id: int
     __dbworkobj__: ClassVar[db_work.Db_work] = None
     __max_repr_recursion_limit__: ClassVar[int] = 10
+    __repr_class_name__: ClassVar[str] = db_types.NotSet
+
     def __init__(self, *args, ID=None, **kwargs):
         raise 'Need set metaclass=DbAttributeMetaclass'
     def __repr__(self):
         return self.__get_repr__(set())
     def __get_repr__(self, Objs: set, now: int=0):
         if now > self.__max_repr_recursion_limit__ or (self.id, self.__class__) in Objs:
-            return f'{self.__class__.__name__}(id={self.id}, ...)'
+            return f'{self.__repr_class_name__}(id={self.id}, ...)'
         Objs.add((self.id, self.__class__))
-        return f'{self.__class__.__name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{getattr(self, i)}'}" for i in self.__db_fields__])})'
+        return f'{self.__repr_class_name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{getattr(self, i)}'}" for i in self.__db_fields__])})'
 
     def _db_attribute_container_update(self, key, data=None):
         """
@@ -228,7 +257,7 @@ class DbAttribute:
         """
         all_attributes = object.__getattribute__(self, '__db_fields__')
         self_dict = object.__getattribute__(self, '__dict__')
-        for db_attr in (all_attributes if attributes is None else all_attributes & attributes):
+        for db_attr in (all_attributes if attributes is None else all_attributes.keys() & attributes):
             self_dict['_'+db_attr] = getattr(self, db_attr)
 
     def set_auto_dump_mode(self, attributes:set[str]=None):
@@ -284,5 +313,3 @@ class DbAttribute:
         for key in kwargs:
             res &= cls._db_attribute_found_ids_by_attribute(attribute_name=key, attribute_value=kwargs[key])
         return res
-
-
