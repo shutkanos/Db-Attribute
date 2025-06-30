@@ -143,7 +143,8 @@ class DbClass:
                 self.__dict__['_first_container'] = _first_container
         if _call_init:
             super().__init__(*args, **kwargs)
-
+    def __repr__(self):
+        return self.__get_repr__(set()) if hasattr(self, '__get_repr__') else super().__repr__()
     def __reduce_ex__(self, protocol):
         temp = super().__reduce_ex__(protocol)
         if len(temp) >= 3 and temp[2] is not None:
@@ -219,7 +220,8 @@ class DbList(DbClass, list):
         list.__init__(self, *args, **kwargs)
         if _convert_arguments:
             self.__convert_arguments__()
-
+    def __get_repr__(self, Objs: set, now: int = 0):
+        return '[' + ', '.join([i.__get_repr__(Objs, now + 1) if hasattr(i, '__get_repr__') else repr(i) for i in self]) + ']'
     @classmethod
     def __convert_to_db__(cls, obj: list, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         """Converted obj to db object: changed type from list to DbList (you can create yourclass method '__convert_to_db__')"""

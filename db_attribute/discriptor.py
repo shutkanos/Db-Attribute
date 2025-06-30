@@ -34,9 +34,9 @@ class ConditionCore:
     def __rshift__(self, other):
         return Condition(self.cls, self, other, '>>', lambda a, b: a >> b)
     def __and__(self, other):
-        return Condition(self.cls, self, other, '&', lambda a, b: a & b)
+        return Condition(self.cls, self, other, 'and', lambda a, b: a & b)
     def __or__(self, other):
-        return Condition(self.cls, self, other, '|', lambda a, b: a | b)
+        return Condition(self.cls, self, other, 'or', lambda a, b: a | b)
     def __xor__(self, other):
         return Condition(self.cls, self, other, '^', lambda a, b: a ^ b)
 
@@ -47,17 +47,20 @@ class AttributeObj(ConditionCore):
         self.attr = attr
 
     def _get_condition_repr(self):
-        default = self.cls.__db_fields__[self.attr].get_default()
-        python_type = self.cls.__db_fields__[self.attr].python_type
-        if default is db_types.NotSet:
-            temp = db_work.get_default_value_from_type(python_type)
-            if temp['status_code'] != 200:
-                raise connector.status_cod[temp['status_code']]
-            default = temp['data']
+        field = self.cls.__db_fields__[self.attr]
+        default = field.get_default()
+        python_type = field.python_type
+        table_name = db_work.get_table_name(self.cls.__name__, self.attr)
+        sql_name = self.cls.__dbworkobj__.connobj.sql_name
+        scr_table_name = db_work.screening(table_name, sql_name)
+        scr_data = db_work.screening('data', sql_name)
+        if default is db_types.NotSet or default is db_types.MISSING:
+            return f'{scr_table_name}.{scr_data}'
         temp = db_work.convert_attribute_value_to_mysql_value(default, python_type)
         if temp['status_code'] != 200:
-            raise connector.status_cod[temp['status_code']]
-        return f'COALESCE({db_work.get_table_name(self.cls.__name__, self.attr)}.data, {temp["data"]})'
+            raise Exception(connector.status_cod[temp['status_code']])
+        sql_default = temp["data"]
+        return f'COALESCE({scr_table_name}.{scr_data}, {sql_default})'
 
     def __repr__(self):
         return f'{self.cls.__name__}.{self.attr}'
@@ -137,7 +140,6 @@ class DbAttributeDiscriptor:
     def dump_attr_to_db(self, this, value, cheak_exists_value=True, update_value=False):
         attribute_type = self.cls.__db_fields__[self.public_name].python_type
         obj = db_class.cheaker.create_db_class(value, attribute_type=attribute_type, _obj_dbattribute=this)
-        #print(this.__dict__, attribute_type.__name__, value, obj)
         if db_work.get_table_name(self.cls.__name__, self.public_name) not in self.cls.__dbworkobj__.tables:
             self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, attribute_type=attribute_type)
             cheak_exists_value = False

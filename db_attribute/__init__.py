@@ -7,7 +7,7 @@ import db_attribute.connector as connector
 import db_attribute.discriptor as discriptor
 
 __all__ = ['DbAttribute', 'DbAttributeMetaclass', 'db_work', 'db_class', 'discriptor', 'connector', 'db_types']
-__version__ = '2.0.2'
+__version__ = '2.1'
 
 class DbAttributeMetaclass(type):
     dict_classes = db_types.DictClasses()
@@ -167,6 +167,9 @@ class DbAttributeMetaclass(type):
         if params_for_metaclass['need_add_this_class_to_dict_classes']:
             cls.dict_classes.add(new_cls)
 
+        if not new_cls.__dbworkobj__.cheak_exists_id_table(new_cls.__name__):
+            new_cls.__dbworkobj__.create_id_table(new_cls.__name__)
+
         return new_cls
 
     def __iter__(self):
@@ -184,9 +187,9 @@ class DbAttribute:
     def __repr__(self):
         return self.__get_repr__(set())
     def __get_repr__(self, Objs: set, now: int=0):
-        if now > self.__max_repr_recursion_limit__ or (self.id, self.__class__) in Objs:
+        if now > self.__max_repr_recursion_limit__ or (self.id, self.__repr_class_name__) in Objs:
             return f'{self.__repr_class_name__}(id={self.id}, ...)'
-        Objs.add((self.id, self.__class__))
+        Objs.add((self.id, self.__repr_class_name__))
         return f'{self.__repr_class_name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{getattr(self, i)}'}" for i in self.__db_fields__])})'
 
     def _db_attribute_container_update(self, key, data=None):
@@ -213,6 +216,8 @@ class DbAttribute:
     def get(cls, id):
         """
         return the one object with this id or None, if it's obj is not found
+        if the 'get' method finds multiple search results, it selects the smallest id.
+        if the 'get' method does not find any search results, it returns None.
         :param id:
         :type id: int | db_types.Id | discriptor.Condition
         :return: obj | None

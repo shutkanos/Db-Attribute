@@ -59,10 +59,10 @@ def convert_mysql_value_to_attribute_value(mysql_value, attribute_type, _obj_dba
         return {'status_code': 200, 'data': True if mysql_value else False}
     if attribute_type is dbtypes.JsonType:
         return {'status_code': 200, 'data': orjson.loads(mysql_value)}
-    if db_class.cheaker.this_support_class(attribute_type, this_is_cls=True) or db_class.cheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True):
-        return {'status_code': 200, 'data': db_class.DbClass.loads(mysql_value, _obj_dbattribute=_obj_dbattribute, _name_attribute=attribute_name)}
     if issubclass(attribute_type, db_attribute.DbAttribute):
         return {'status_code': 200, 'data': attribute_type.get(id=mysql_value)}
+    if db_class.cheaker.this_support_class(attribute_type, this_is_cls=True) or db_class.cheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True):
+        return {'status_code': 200, 'data': db_class.DbClass.loads(mysql_value, _obj_dbattribute=_obj_dbattribute, _name_attribute=attribute_name)}
     return {'status_code': 300}
 
 def sql_decorator(func_d=None, /, standart_return=None):
@@ -81,10 +81,19 @@ def sql_decorator(func_d=None, /, standart_return=None):
     return active_decorator(func_d)
 
 def get_table_name(class_name:str, attribute_name:str):
-    return f'cls_{class_name}_atr_{attribute_name}'.lower()
+    if ' ' in class_name:
+        raise Exception(f'The "{class_name}" class has the space (" ") in  the name')
+    if ' ' in attribute_name:
+        raise Exception(f'The "{attribute_name}" attribute has the space (" ") in the name')
+    return f'cls {class_name} atr {attribute_name}'.lower()
 
 def get_id_table_name(class_name:str):
-    return f'cls_{class_name}_ids'.lower()
+    return f'cls {class_name} ids'.lower()
+
+def screening(name, db_name="MySQL"):
+    if db_name == "MySQL":
+        return f'`{name}`'
+    return f'"{name}"'
 
 class Db_work:
     def __init__(self, connobj, sittings_for_mysql_types=None):
@@ -103,7 +112,7 @@ class Db_work:
         Res = collections.defaultdict(list)
         for i in self.tables:
             try:
-                temp = i.split('_')
+                temp = i.split()
                 if temp[0] == 'cls' and temp[2] == 'atr':
                     Res[temp[1]].append(i)
             except:
@@ -119,7 +128,8 @@ class Db_work:
     def _create_table(self, table_name: str, attributes: list[tuple[str, str]]):
         if table_name.lower() in self.tables:
             return {'status_code': 301}
-        self.connobj.cur.execute(f"""CREATE TABLE {table_name} (id BIGINT PRIMARY KEY AUTO_INCREMENT{', ' if attributes else ''}{', '.join((f'{attribute[0]} {attribute[1]}' for attribute in attributes))})""")
+        screening_table_name = screening(table_name, self.connobj.sql_name)
+        self.connobj.cur.execute(f"""CREATE TABLE {screening_table_name} (id BIGINT PRIMARY KEY AUTO_INCREMENT{', ' if attributes else ''}{', '.join((f'{attribute[0]} {attribute[1]}' for attribute in attributes))})""")
         self.connobj.conn.commit()
         self.tables = self.get_tables_list()['data']
         self.class_names = self.get_class_names_list()
@@ -129,7 +139,8 @@ class Db_work:
     def _create_id_table(self, table_name: str):
         if table_name.lower() in self.tables:
             return {'status_code': 301}
-        self.connobj.cur.execute(f"""CREATE TABLE {table_name} (id BIGINT PRIMARY KEY AUTO_INCREMENT)""")
+        scr_table_name = screening(table_name, self.connobj.sql_name)
+        self.connobj.cur.execute(f"""CREATE TABLE {scr_table_name} (id BIGINT PRIMARY KEY AUTO_INCREMENT)""")
         self.connobj.conn.commit()
         self.tables = self.get_tables_list()['data']
         self.class_names = self.get_class_names_list()
@@ -141,7 +152,8 @@ class Db_work:
             if ignore_302:
                 return {'status_code': 200}
             return {'status_code': 302}
-        self.connobj.cur.execute(f"""DROP TABLE {table_name}""")
+        scr_table_name = screening(table_name, self.connobj.sql_name)
+        self.connobj.cur.execute(f"""DROP TABLE {scr_table_name}""")
         self.connobj.conn.commit()
         self.tables = self.get_tables_list()['data']
         self.class_names = self.get_class_names_list()
@@ -160,7 +172,8 @@ class Db_work:
             if ignore_302:
                 return {'status_code': 200, 'data': []}
             return {'status_code': 302}
-        self.connobj.cur.execute(f"""select * from {table_name} where id {operator} {ID}""")
+        scr_table_name = screening(table_name, self.connobj.sql_name)
+        self.connobj.cur.execute(f"""select * from {scr_table_name} where id {operator} {ID}""")
         return {'status_code': 200, 'data': [i[-1] for i in self.connobj.cur.fetchall()]}
 
     @sql_decorator
@@ -169,7 +182,8 @@ class Db_work:
             if ignore_302:
                 return {'status_code': 200, 'data': []}
             return {'status_code': 302}
-        self.connobj.cur.execute(f"""select id from {table_name} where data {operator} {value}""")
+        scr_table_name = screening(table_name, self.connobj.sql_name)
+        self.connobj.cur.execute(f"""select id from {scr_table_name} where data {operator} {value}""")
         return {'status_code': 200, 'data': {i[0] for i in self.connobj.cur.fetchall()}}
 
     @sql_decorator
@@ -178,7 +192,8 @@ class Db_work:
             if ignore_302:
                 return {'status_code': 200, 'data': []}
             return {'status_code': 302}
-        self.connobj.cur.execute(f"""select id from {table_name}""")
+        scr_table_name = screening(table_name, self.connobj.sql_name)
+        self.connobj.cur.execute(f"""select id from {scr_table_name}""")
         return {'status_code': 200, 'data': {i[0] for i in self.connobj.cur.fetchall()}}
 
     @sql_decorator
@@ -188,7 +203,10 @@ class Db_work:
                 return {'status_code': 200, 'data': []}
             return {'status_code': 302}
         id_table = get_id_table_name(class_name)
-        self.connobj.cur.execute(f"""select {id_table}.id from {id_table} {' '.join((f'left join {i} on {id_table}.id = {i}.id' for i in self.class_names[class_name]))} where {condition}""")
+        scr_id_table = screening(id_table, self.connobj.sql_name)
+        scr_id = screening('id', self.connobj.sql_name)
+        temp = [screening(i, self.connobj.sql_name) for i in self.class_names[class_name]]
+        self.connobj.cur.execute(f"""select {scr_id_table}.{scr_id} from {scr_id_table} {' '.join((f'left join {i} on {scr_id_table}.{scr_id} = {i}.{scr_id}' for i in temp))} where {condition}""")
         return {'status_code': 200, 'data': {i[0] for i in self.connobj.cur.fetchall()}}
 
     @sql_decorator
@@ -197,14 +215,16 @@ class Db_work:
             if ignore_302:
                 return {'status_code': 200}
             return {'status_code': 302}
-        self.connobj.cur.execute(f"""delete from {table_name} where id={ID}""")
+        scr_table_name = screening(table_name, self.connobj.sql_name)
+        self.connobj.cur.execute(f"""delete from {scr_table_name} where id={ID}""")
         self.connobj.conn.commit()
         return {'status_code': 200}
 
     @sql_decorator
     def _add_value_by_id(self, table_name:str, ID:int, value, ignore_302:bool=False):
         try:
-            self.connobj.cur.execute(f"""insert ignore into {table_name} (id, data) values ({ID}, {value}) on duplicate key update data=VALUES(data)""")
+            scr_table_name = screening(table_name, self.connobj.sql_name)
+            self.connobj.cur.execute(f"""insert ignore into {scr_table_name} (id, data) values ({ID}, {value}) on duplicate key update data=VALUES(data)""")
             self.connobj.conn.commit()
         except Exception as e:
             if e.errno == errorcode.ER_NO_SUCH_TABLE:
@@ -215,7 +235,8 @@ class Db_work:
     @sql_decorator
     def _add_id(self, table_name:str, ID:int, ignore_302:bool=False):
         try:
-            self.connobj.cur.execute(f"""insert into {table_name} (id) values ({ID}) on duplicate key update id=VALUES(id)""")
+            scr_table_name = screening(table_name, self.connobj.sql_name)
+            self.connobj.cur.execute(f"""insert into {scr_table_name} (id) values ({ID}) on duplicate key update id=VALUES(id)""")
             self.connobj.conn.commit()
         except Exception as e:
             if e.errno == errorcode.ER_NO_SUCH_TABLE:
@@ -226,7 +247,8 @@ class Db_work:
     @sql_decorator
     def _get_new_id(self, table_name:str):
         try:
-            self.connobj.cur.execute(f"INSERT INTO {table_name} () VALUES ()")
+            scr_table_name = screening(table_name, self.connobj.sql_name)
+            self.connobj.cur.execute(f"INSERT INTO {scr_table_name} () VALUES ()")
             next_id = self.connobj.cur.lastrowid
             self.connobj.conn.commit()
         except Exception as e:
@@ -234,21 +256,6 @@ class Db_work:
                 return {'status_code': 302}
             raise e
         return {'status_code': 200, 'data': next_id}
-
-    @sql_decorator
-    def _update_value_by_id(self, table_name:str, ID:int, value, add_value_if_not_exists:bool=True, cheak_exists_value:bool=True, ignore_302:bool=False):
-        print('update_value_by_id is not support at the moment, and will deleted in 1.4 version')
-        if cheak_exists_value:
-            temp_data = self._get_values_by_id(table_name=table_name, ID=ID)
-            if temp_data['status_code'] == 302 and ignore_302: return {'status_code': 200}
-            if temp_data['status_code'] != 200: return temp_data
-            if not temp_data['data']:
-                if add_value_if_not_exists:
-                    return self._add_value_by_id(table_name=table_name, ID=ID, value=value)
-                return {'status_code': 304}
-        self.connobj.cur.execute(f"""update {table_name} set data = {value} where id = {ID}""")
-        self.connobj.conn.commit()
-        return {'status_code': 200}
 
     def create_attribute_table(self, class_name: str, attribute_name: str, attribute_type=None, _cls_dbattribute=None, len_varchar:int=50):
         """
@@ -340,10 +347,17 @@ if __name__ == '__main__':
 
     connect_obj = connector.Connection(host=host, user=user, password=password, database=database)
     db_work_obj = Db_work(connect_obj)
+    #print(db_work_obj.class_names)
     #print(db_work_obj.tables)
+    #db_work_obj.create_attribute_table('User', 'name', str)
+    #db_work_obj.add_attribute_value('User', 'name', 10, 'Bob', str)
+    #print(db_work_obj.get_attribute_value('User', 'name', 10, str))
+    print(db_work_obj.tables)
+    print(db_work_obj.class_names)
+    #db_work_obj._deleate_table('cls dbattributemetaclass ids')
     #for i in db_work_obj.tables:
-        #db_work_obj._deleate_table(i)
-        #print(i)
+    #    db_work_obj._deleate_table(i)
+    #    print(i)
 
     #db_work_obj.deleate_table('cls_a_atr_b_obj')
 

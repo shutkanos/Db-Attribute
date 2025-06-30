@@ -130,24 +130,30 @@ class DictClasses:
 def _created_db_class(cls):
     @db_class.DbClassDecorator
     class ContainerDbAttribute(db_class.DbClass, cls, need_DbAttributeMetaclass=False, __repr_class_name__=cls.__name__):
-        def __init__(self, class_name: str, id: int = NotSet, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
-            #print(class_name, id)
+        def __init__(self, id: int = NotSet, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
             super().__init__(*args, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
             object.__setattr__(self, 'id', id)
-            object.__setattr__(self, 'class_name', class_name)
 
         @classmethod
         def __convert_to_db__(cls, obj: db_attribute.DbAttribute, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
-            return cls(class_name=obj.__class__.__name__, id=obj.id, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+            if isinstance(obj, int):
+                Id = obj
+            else:
+                Id = obj.id
+            return cls(id=Id, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
         def dumps(self, _return_json=True):
-            if _return_json: return json.dumps({'t': self.__class__.__name__, 'i': self.id, 'n': self.class_name})
-            return {'t': self.__class__.__name__, 'i': self.id, 'n': self.class_name}
+            if _return_json: return json.dumps({'t': f'ContainerDbAttribute_{cls.__name__}', 'i': self.id})
+            return {'t': f'ContainerDbAttribute_{cls.__name__}', 'i': self.id}
+
+        def copy(self):
+            return cls(id=self.id)
 
         @classmethod
         def _loads(cls, tempdata: dict, *, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
-            need_cls = db_attribute.DbAttributeMetaclass.dict_classes.db_containers[tempdata['n']]
-            return need_cls(class_name=tempdata['n'], id=tempdata['i'], _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+            return cls(id=tempdata['i'], _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+
+    ContainerDbAttribute.__name__ = f'ContainerDbAttribute_{cls.__name__}'
 
     db_class.cheaker.add_db_class((cls, ContainerDbAttribute))
     return ContainerDbAttribute
