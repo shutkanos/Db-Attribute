@@ -11,6 +11,7 @@ This module allows you to save attributes of objects not in RAM, but in a databa
     * [Work with obj](#work-with-obj)
         * [Create new obj / add obj do db](#create-new-obj--add-obj-do-db)
         * [Found / get obj](#found--get-obj)
+        * [Iterations](#iterations)
         * [Change attribute of obj](#change-attribute-of-obj)
         * [Dump mode](#dump-mode)
     * [Types](#types)
@@ -162,6 +163,24 @@ print((User.age == 3) & (User.name == 'Bob'))   #((User.age = 3) and (User.name 
 ```
 
 Use '&', '|' instead of the 'and', 'or' operators. The 'and' and 'or' operators are not supported
+
+### Iterations
+
+If a developer needs to iterate through all the elements of a class, they can use standard Python tools.
+
+```python
+print(list(User))
+#[User(id=1, name=Bob, age=3), User(id=2, name=Bob, age=2), User(id=3, name=Anna, age=2)]
+
+print([i.name for i in User])
+#['Bob', 'Bob', 'Anna']
+
+for i in User:
+    print(i)
+#User(id=1, name=Bob, age=3)
+#User(id=2, name=Bob, age=2)
+#User(id=3, name=Anna, age=2)
+```
 
 ### Change attribute of obj
 
