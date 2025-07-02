@@ -1,0 +1,24 @@
+include *.md
+include LICENSE
+include requirements.txt
+include pyproject.toml
+
+recursive-include db_attribute *.py
+
+recursive-exclude */__pycache__ *
+recursive-exclude .git *
+recursive-exclude .idea *
+recursive-exclude .venv *
+recursive-exclude build *
+recursive-exclude dist *
+recursive-exclude tests *
+
+global-exclude *.log
+global-exclude *.py[cod]
+global-exclude *~
+global-exclude .*
+global-exclude *.bat
+global-exclude *.cfg
+prune db_attribute.egg-info
+exclude PKG-INFO
+exclude setup.cfg

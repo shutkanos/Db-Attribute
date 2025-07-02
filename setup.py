@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 from codecs import open
 from os import path
@@ -16,6 +16,7 @@ setup(
     version='2.1',
     description='DataBase attribute package',
     long_description=long_description,
+    long_description_content_type='text/markdown',
     url='https://github.com/shutkanos/Db-Attribute',
 
     author='Shutkanos',
@@ -33,7 +34,7 @@ setup(
     ],
 
     keywords='db database attribute dbattribute db_attribute databaseattribute auto_attribute',
-    packages=find_packages(),
+    packages=['db_attribute'],
 
     install_requires=required,
 

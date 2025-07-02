@@ -31,10 +31,16 @@ If developer needs other data types, he will need to write an adapter class.
 
 # Install
 
-Installation from source (requires git):
+The package can be obtained from PyPI and installed in a single step:
 
 ```
-$ pip install git+https://github.com/shutkanos/Db-Attribute.git
+pip install db_attribute
+```
+
+And can be obtained from source (requires git):
+
+```
+pip install git+https://github.com/shutkanos/Db-Attribute.git
 ```
 
 # How it used
