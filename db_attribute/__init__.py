@@ -87,6 +87,8 @@ class DbAttributeMetaclass(type):
 
             if isinstance(attr_value, db_types.DbField):
                 db_field = attr_value
+            elif isinstance(attr_value, db_types.Factory):
+                db_field = db_types.DbField(default_factory=attr_value)
             else:
                 db_field = db_types.DbField(default=attr_value)
 
@@ -95,7 +97,7 @@ class DbAttributeMetaclass(type):
             if db_field.python_type is db_types.MISSING:
                 if db_field.default is not db_types.MISSING:
                     db_field.python_type = type(db_field.default)
-                elif db_field.default_factory is not db_types.MISSING:
+                elif db_field.default_factory is not db_types.MISSING: #the idea: is to add a parameter for metaclass so as not to call default_factory to determine the type of the variable.
                     db_field.python_type = type(db_field.default_factory.get_value())
             if db_field.python_type is db_types.MISSING:
                 raise f'the type for {attr_name} of {name} is not set (add python_type for DbField or set type in annotations or set default for DbField or set default_factory for DbField)'
@@ -190,7 +192,7 @@ class DbAttribute:
         if now > self.__max_repr_recursion_limit__ or (self.id, self.__repr_class_name__) in Objs:
             return f'{self.__repr_class_name__}(id={self.id}, ...)'
         Objs.add((self.id, self.__repr_class_name__))
-        return f'{self.__repr_class_name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{getattr(self, i)}'}" for i in self.__db_fields__])})'
+        return f'{self.__repr_class_name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{repr(getattr(self, i))}'}" for i in self.__db_fields__])})'
 
     def _db_attribute_container_update(self, key, data=None):
         """

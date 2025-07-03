@@ -1,16 +1,39 @@
 DbAttribute - Database Attribute
 =========================
 
-This module allows you to save attributes of objects not in RAM, but in a database. the closest analogue is <a href='https://github.com/sqlalchemy/sqlalchemy'>SQLAlchemy</a>. Unlike SQLAlchemy, this module maximizes automatism, allowing the developer to focus on other details without worrying about working with the database.
+DbAttribute is an ORM library designed to simplify database interactions. Core capabilities:
+
+* Automatic state synchronization
+Object attribute changes are automatically tracked and persisted to the database without requiring explicit commit calls.
+<br><br>
+* Direct object manipulation
+Supports both value assignment (obj.attr = value) and in-place modification of container types:
+
+```python
+obj.books.append("New Book")
+obj.settings["theme"] = "dark"
+```
+
+* Expressive query syntax
+Filtering uses Python operators with natural syntax:
+
+```python
+# Find users older than 18 named Anna
+User.get((User.age > 18) & (User.name == "Anna"))
+
+# Get all users named John
+[user for user in User if user.name == "John"]
+```
+The library provides tools for declarative model definition, relationship management, and database operation optimization through configurable synchronization modes.
 
 * [Supported types](#supported-types)
 * [Install](#install)
-* [How it used](#how-it-used)
+* [How to use it](#how-to-use-it)
     * [Create class](#create-class)
         * [Options](#options)
     * [Work with obj](#work-with-obj)
-        * [Create new obj / add obj do db](#create-new-obj--add-obj-do-db)
-        * [Found / get obj](#found--get-obj)
+        * [Create new object](#create-new-object)
+        * [Finding objects](#finding-objects)
         * [Iterations](#iterations)
         * [Change attribute of obj](#change-attribute-of-obj)
         * [Dump mode](#dump-mode)
@@ -25,9 +48,9 @@ This module allows you to save attributes of objects not in RAM, but in a databa
 
 # Supported types
 
-This module supported standart types: `int`, `float`, `str`, `bool`, `None`, `tuple`, `list`, `set`, `dict`, `datetime`.
+This module supports standard types: `int`, `float`, `str`, `bool`, `None`, `tuple`, `list`, `set`, `dict`, `datetime`.
 
-If developer needs other data types, he will need to write an adapter class.
+If a developer needs other data types, they will need to write an adapter class.
 
 # Install
 
@@ -37,22 +60,22 @@ The package can be obtained from PyPI and installed in a single step:
 pip install db_attribute
 ```
 
-And can be obtained from source (requires git):
+It can also be obtained from source (requires git):
 
 ```
 pip install git+https://github.com/shutkanos/Db-Attribute.git
 ```
 
-# How it used
+# How to use it
 
 ## Create class
 
-For create any classes (Tables):
+To create any class (Table):
 
 * Set metaclass `DbAttributeMetaclass`
 * Inheritance the `DbAttribute` (optional, since it inherits automatically when using a metaclass)
 * Set dbworkobj for connect to database
-* Create any fields / Annotations / DbFields for database
+* Define fields using annotations or DbField for database columns
 
 ```python
 from db_attribute import DbAttribute, DbAttributeMetaclass, db_work, connector
@@ -67,10 +90,10 @@ class User(DbAttribute, metaclass=DbAttributeMetaclass, __dbworkobj__=db_work_ob
     ban = DbField(default=False) # Ok
     other_int_information = 100 # Need annotation or DbField - not error, but not saved
     list_of_books = DbField(default_factory=lambda: ['name of first book']) # Ok
-    sittings: dict = DbField(default_factory=lambda: {}) # Ok
+    settings: dict = DbField(default_factory=lambda: {}) # Ok
 ```
 
-Each class object has its own `id`. It is inherited from DbAttribute and stored in __dict__
+Each instance has a unique `id` identifier. It is inherited from DbAttribute and stored in `__dict__`
 
 ### Options
 
@@ -92,7 +115,9 @@ class User(DbAttribute, metaclass=DbAttributeMetaclass):
 ```python
 class BaseMeta:
     __dbworkobj__ = dbworkobj
-class User(DbAttribute, metaclass=DbAttributeMetaclass):
+class Class_A(DbAttribute, metaclass=DbAttributeMetaclass):
+    Meta = BaseMeta
+class Class_B(DbAttribute, metaclass=DbAttributeMetaclass):
     Meta = BaseMeta
 ```
 
@@ -104,9 +129,9 @@ All options:
 
 ## Work with obj
 
-### Create new obj / add obj do db
+### Create new object
 
-For create obj use id (optional) and other fields (optional),
+To create an object, use an id (optional) and other fields (optional),
 
 ```python
 obj = User(id=3) # other field set to defaults value
@@ -123,7 +148,7 @@ obj = User(name='Alica')
 print(obj) # User(id=5, name='Alica')
 ```
 
-If Developer need recreated obj, he can call DbAttribute cls with id.
+If a developer needs to recreate an object, he can call DbAttribute cls with id.
 
 ```python
 obj = User(name='Ben', age=10, id=3) #insert obj to db
@@ -142,33 +167,35 @@ obj = User(id=3)
 print(obj) #User(id=3, name='Anna', age=15)
 ```
 
-### Found / get obj
+### Finding objects
 
-if the developer needs to find an object, he can use the 'get' method.
+If a developer needs to find an object, they can use the 'get' method.
 
-if the 'get' method finds multiple search results, it selects the smallest id.
-if the 'get' method does not find any search results, it returns None.
+The `get()` method returns:
+- Single object if found
+- Object with smallest ID if multiple matches exist
+- `None` if no matches found
 
 ```python
 #create objs
-obj = User(name='Bob', age=3, id=1)
-obj = User(name='Bob', age=2, id=2)
+obj = User(name='Bob', age=2, id=1)
+obj = User(name='Bob', age=3, id=2)
 obj = User(name='Anna', age=2, id=3)
 #finds objs
-print(User.get((User.age == 3) & (User.name == 'Bob'))) #User(id=1, name=Bob, age=3)
-print(User.get(User.name == 'Anna'))                    #User(id=3, name=Anna, age=2)
-print(User.get(User.name == 'Bob'))                     #User(id=1, name=Bob, age=3)
+print(User.get((User.age == 3) & (User.name == 'Bob'))) #User(id=2, name='Bob', age=3)
+print(User.get(User.name == 'Anna'))                    #User(id=3, name='Anna', age=2)
+print(User.get(User.name == 'Bob'))                     #User(id=1, name='Bob', age=2)
 print(User.get(User.name == 'Other name'))              #None
 ```
 
 To check the correctness of writing a logical expression, you can:
 
 ```python
-print(User.name == 'Anna')                      #(User.name = Anna)
-print((User.age == 3) & (User.name == 'Bob'))   #((User.age = 3) and (User.name = Bob))
+print(User.name == 'Anna')                      #(User.name = 'Anna')
+print((User.age == 3) & (User.name == 'Bob'))   #((User.age = 3) and (User.name = 'Bob'))
 ```
 
-Use '&', '|' instead of the 'and', 'or' operators. The 'and' and 'or' operators are not supported
+Use '&' and '|' instead of the 'and' and 'or' operators. The 'and' and 'or' operators are not supported
 
 ### Iterations
 
@@ -176,17 +203,18 @@ If a developer needs to iterate through all the elements of a class, they can us
 
 ```python
 print(list(User))
-#[User(id=1, name=Bob, age=3), User(id=2, name=Bob, age=2), User(id=3, name=Anna, age=2)]
+#[User(id=1, name='Bob', age=3), User(id=2, name='Bob', age=2), User(id=3, name='Anna', age=2)]
 
-print([i.name for i in User])
-#['Bob', 'Bob', 'Anna']
+print([i for i in User if i.age < 3])
+#[User(id=2, name='Bob', age=2), User(id=3, name='Anna', age=2)]
 
 for i in User:
     print(i)
-#User(id=1, name=Bob, age=3)
-#User(id=2, name=Bob, age=2)
-#User(id=3, name=Anna, age=2)
+#User(id=1, name='Bob', age=3)
+#User(id=2, name='Bob', age=2)
+#User(id=3, name='Anna', age=2)
 ```
+⚠️ Iterations loads all objects - not recommended for large tables
 
 ### Change attribute of obj
 
@@ -203,7 +231,7 @@ print(obj) #User(id=1, name='Anna', list_of_books=['Any name of book'])
 
 ### Dump mode
 
-If in any function you will work with obj, you can activate manual_dump_mode (auto_dump_mode is default),
+If in any function you will work with obj, you can activate manual_dump_mode (auto_dump_mode is the default),
 
 * `auto_dump_mode`: attributes don't save in self.__dict__, all changes automatic dump in db.
 * `manual_dump_mode`: attributes save in self.__dict__, and won't dump in db until self.db_attribute_set_dump_mode is called. this helps to quickly perform operations on containers db attributes
@@ -220,7 +248,7 @@ user.set_manual_dump_mode()
 print(user.__dict__)
 # {'id': 1, '_any_db_data1': 531, '_any_db_data2': 'string'}
 ```
-Or set dump mod for individual attributes
+Or set dump mode for individual attributes
 
 ```python
 user = User(id=1, any_db_data1=531, any_db_data2='string')
@@ -238,7 +266,7 @@ for i in range(10 ** 5):
     user.list_of_books.append(i)
 user.set_auto_dump_mode()
 ```
-If Developer need dump attributes to db with manual_dump_mode, you can use DbAttribute.db_attribute_dump
+If a developer needs to dump attributes to db with manual_dump_mode, you can use DbAttribute.db_attribute_dump
 
 ```python
 user = User(id=1, list_of_books=[])
@@ -255,7 +283,7 @@ user.set_auto_dump_mode()
 
 ### Db attribute
 
-Developer can set the Db attribute class as data type for another Db attribute class
+A developer can set the Db attribute class as data type for another Db attribute class
 
 ```python
 from db_attribute.db_types import TableType
@@ -268,24 +296,24 @@ class Class_B(DbAttribute, metaclass=DbAttributeMetaclass):
     Meta = BaseMeta
     obj_a: Class_A
 ```
-For create obj:
+To create an object:
 ```python
 obj_a = Class_A(id=15, name='Anna', obj_b=1)
 obj_b = Class_B(id=1, name='Bob', obj_a=15)
-print(obj_b) #Class_B(id=1, name=Bob, obj_a=Class_A(id=15, name=Anna, obj_b=Class_B(id=1, ...)))
+print(obj_b) #Class_B(id=1, name='Bob', obj_a=Class_A(id=15, name='Anna', obj_b=Class_B(id=1, ...)))
 #or
 obj_a = Class_A(id=15, name='Anna', obj_b=obj_b)
-print(obj_a) #Class_A(id=15, name=Anna, obj_b=Class_B(id=1, name=Bob, obj_a=Class_A(id=15, ...)))
+print(obj_a) #Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Class_A(id=15, ...)))
 ```
 For found obj:
 ```python
 Class_A(id=15, name='Anna', obj_b=1)
 obj = Class_B(id=1, name='Bob', obj_a=15)
 obj = Class_A.get(Class_A.obj_b == obj)
-print(obj) #Class_A(id=15, name=Anna, obj_b=Class_B(id=1, name=Bob, obj_a=Class_A(id=15, ...)))
+print(obj) #Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Class_A(id=15, ...)))
 #And Found with use id of obj:
 obj = Class_A.get(Class_A.obj_b == 1)
-print(obj) #Class_A(id=15, name=Anna, obj_b=Class_B(id=1, name=Bob, obj_a=Class_A(id=15, ...)))
+print(obj) #Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Class_A(id=15, ...)))
 ```
 
 ### Db classes
@@ -311,7 +339,7 @@ print(obj.list_of_books.dumps())
 
 ### Json type
 
-Db attribute support `tuple`, `list`, `dict`, other collections, but this types slow, because uses Db classes (see [speed test](#speed-test)).
+DbAttribute supports `tuple`, `list`, `dict`, other collections, but these types are slow, because uses Db classes (see [speed test](#speed-test)).
 
 To solve this problem, use a Json convertation
 
@@ -320,24 +348,24 @@ from db_attribute.db_types import JsonType, DbField
 
 class User(DbAttribute, metaclass=DbAttributeMetaclass):
     Meta = BaseMeta
-    sittings: JsonType = DbField(default_factory=lambda: {})
+    settings: JsonType = DbField(default_factory=lambda: {})
 
-obj = User(1, sittings={1: 2, 3: [4, 5]})
-print(obj.sittings)  # {'1': 2, '3': [4, 5]}
-print(type(obj.sittings))  # dict
+obj = User(1, settings={1: 2, 3: [4, 5]})
+print(obj.settings)  # {'1': 2, '3': [4, 5]}
+print(type(obj.settings))  # dict
 ```
 
 * If Developer change obj with JsonType, this obj don't dump to db, you need set the new obj 
-* The json support only `dict`, `list`, `str`, `int`, `float`, `True`, `False`, `None`
+* JsonType only supports: `dict`, `list`, `str`, `int`, `float`, `bool`, `None`
 
 ```python
-obj = User(1, sittings={1: 2, 3: [4, 5]})
-del obj.sittings['3'] # not changed
-obj.sittings['1'] = 3 # not changed
-obj.sittings |= {4: 5} # not changed
-print(obj.sittings) #{'1': 2, '3': [4, 5]}
-obj.sittings = {1: 3} # changed
-print(obj.sittings) #{'1': 3}
+obj = User(1, settings={1: 2, 3: [4, 5]})
+del obj.settings['3'] # not changed
+obj.settings['1'] = 3 # not changed
+obj.settings |= {4: 5} # not changed
+print(obj.settings) #{'1': 2, '3': [4, 5]}
+obj.settings = {1: 3} # changed
+print(obj.settings) #{'1': 3}
 ```
 
 # Speed Test
@@ -351,7 +379,7 @@ The execution speed may vary from computer to computer, so you need to focus on 
 
 Mysql `select` - 12500 op/sec
 
-Type      | Operation/seconds | How much slower is it
+Type      | Operation/seconds | Performance impact
 ----------|-------------------|---------------------------
 int       | 11658 op/sec      | -6%
 str       | 11971 op/sec      | -4%
@@ -364,7 +392,7 @@ JsonType  | 11937 op/sec      | -4%
 
 Mysql `insert` - 8500 op/sec<br>
 
-Type      | Operation/seconds | How much slower is it
+Type      | Operation/seconds | Performance impact
 ----------|-------------------|---------------------------
 int       | 8056 op/sec       | -5%
 str       | 8173 op/sec       | -3%
@@ -375,5 +403,5 @@ JsonType  | 7297 op/sec       | -14%
 
 # Data base
 
-this module used MySQL db (<a href="https://github.com/mysql/mysql-connector-python/blob/trunk/LICENSE.txt">Licanse</a>), and for use it, you need install <a href='https://www.mysql.com'>mysql</a>
+This module uses MySQL db (<a href="https://github.com/mysql/mysql-connector-python/blob/trunk/LICENSE.txt">License</a>), and for use it, you need install <a href='https://www.mysql.com'>mysql</a>
 

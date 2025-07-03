@@ -46,7 +46,7 @@ class JsonType:
 
 class Factory:
     def __init__(self, fabric):
-        self.fabric = fabric
+        self.fabric = fabric.fabric if isinstance(fabric, Factory) else fabric
     def get_value(self):
         return self.fabric()
     def __call__(self):

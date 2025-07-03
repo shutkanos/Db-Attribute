@@ -94,7 +94,7 @@ class Condition(ConditionCore):
         return f'({left} {self.operator} {right})'
 
     def __repr__(self):
-        return f'({self.left} {self.operator} {self.right})'
+        return f'({repr(self.left)} {self.operator} {repr(self.right)})'
 
 
 class DbAttributeDiscriptor:
@@ -156,7 +156,9 @@ class DbAttributeDiscriptor:
             value = self.get_default_value()
             if value is db_types.NotSet:
                 raise Exception(connector.status_cod[305]['eng'])
-            self.__set__(this, value)
+            self.__set__(this, value) #set the new attr
+            attribute_type = self.cls.__db_fields__[self.public_name].python_type
+            value = db_class.cheaker.create_db_class(value, attribute_type=attribute_type, _obj_dbattribute=this, _name_attribute=self.public_name) #convert attr to DbClasses
             return value
         if temp_data['status_code'] != 200:
             return None
