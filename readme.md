@@ -18,11 +18,11 @@ obj.settings["theme"] = "dark"
 Filtering uses Python operators with natural syntax:
 
 ```python
-# Find users older than 18 named Anna
-User.get((User.age > 18) & (User.name == "Anna"))
+# Find users older than 18 named John
+User.get((User.age > 18) & (User.name == "John"))
 
-# Get all users named John
-[user for user in User if user.name == "John"]
+# Get all users named Bob
+[user for user in User if user.name == "Bob"]
 ```
 The library provides tools for declarative model definition, relationship management, and database operation optimization through configurable synchronization modes.
 
@@ -90,7 +90,7 @@ class User(DbAttribute, metaclass=DbAttributeMetaclass, __dbworkobj__=db_work_ob
     ban = DbField(default=False) # Ok
     other_int_information = 100 # Need annotation or DbField - not error, but not saved
     list_of_books = DbField(default_factory=lambda: ['name of first book']) # Ok
-    settings: dict = DbField(default_factory=lambda: {}) # Ok
+    settings: dict = DbField(default_factory=dict) # Ok
 ```
 
 Each instance has a unique `id` identifier. It is inherited from DbAttribute and stored in `__dict__`
@@ -314,6 +314,27 @@ print(obj) #Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Cl
 #And Found with use id of obj:
 obj = Class_A.get(Class_A.obj_b == 1)
 print(obj) #Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Class_A(id=15, ...)))
+```
+One-to-Many relationship:
+```python
+from db_attribute.db_types import DbField
+
+class Author(DbAttribute, metaclass=DbAttributeMetaclass):
+    Meta = BaseMeta
+    name: str = ""
+    books: list = DbField(default_factory=list)
+
+class Book(DbAttribute, metaclass=DbAttributeMetaclass):
+    Meta = BaseMeta
+    title: str = ""
+    author: Author
+
+author = Author(name="George Orwell")
+book = Book(title="1984", author=author)
+author.books.append(book)
+
+print(author) #Author(id=1, name='George Orwell', books=[Book(id=1, title='1984', author=Author(id=1, ...))])
+print(book) #Book(id=1, title='1984', author=Author(id=1, name='George Orwell', books=[Book(id=1, ...)]))
 ```
 
 ### Db classes
