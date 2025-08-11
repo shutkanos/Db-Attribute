@@ -192,7 +192,7 @@ class DbAttribute:
         if now > self.__max_repr_recursion_limit__ or (self.id, self.__repr_class_name__) in Objs:
             return f'{self.__repr_class_name__}(id={self.id}, ...)'
         Objs.add((self.id, self.__repr_class_name__))
-        return f'{self.__repr_class_name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{repr(getattr(self, i))}'}" for i in self.__db_fields__])})'
+        return f'''{self.__repr_class_name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{repr(getattr(self, i))}'}" for i in self.__db_fields__])})'''
 
     def _db_attribute_container_update(self, key, data=None):
         """

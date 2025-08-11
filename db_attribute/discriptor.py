@@ -138,10 +138,11 @@ class DbAttributeDiscriptor:
         return self.field.get_default()
 
     def dump_attr_to_db(self, this, value, cheak_exists_value=True, update_value=False):
-        attribute_type = self.cls.__db_fields__[self.public_name].python_type
+        db_field = self.cls.__db_fields__[self.public_name]
+        attribute_type = db_field.python_type
         obj = db_class.cheaker.create_db_class(value, attribute_type=attribute_type, _obj_dbattribute=this)
         if db_work.get_table_name(self.cls.__name__, self.public_name) not in self.cls.__dbworkobj__.tables:
-            self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, attribute_type=attribute_type)
+            self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, db_field=db_field)
             cheak_exists_value = False
         ID = object.__getattribute__(this, 'id')
         self.cls.__dbworkobj__.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=obj, attribute_type=attribute_type)
@@ -150,7 +151,7 @@ class DbAttributeDiscriptor:
         ID = object.__getattribute__(this, 'id')
         temp_data = object.__getattribute__(self.cls, '__dbworkobj__').get_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, _obj_dbattribute=this)
         if temp_data['status_code'] == 302: #table is not create
-            object.__getattribute__(self.cls, '__dbworkobj__').create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, _cls_dbattribute=self.cls)
+            self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, _cls_dbattribute=self.cls)
             temp_data['status_code'] = 304
         if temp_data['status_code'] == 304: #attr is not found
             value = self.get_default_value()

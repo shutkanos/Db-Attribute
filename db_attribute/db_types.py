@@ -1,4 +1,5 @@
 import collections, json
+from typing import Callable, Any
 
 import db_attribute
 
@@ -55,16 +56,31 @@ class Factory:
         return 'FACTORY'
 
 class DbField:
-    def __init__(self, default=MISSING, default_factory=MISSING, python_type=MISSING, mysql_type=MISSING, repr=True, init=True, **kwargs):
-        """Attention! python_type takes precedence over the data type specified in the annotation"""
+    def __init__(self, default:Any=MISSING, default_factory:Callable[[], Any]=MISSING, python_type:Any=MISSING, mysql_type:str=MISSING, repr=True, init=True, **kwargs):
+        """
+        :param default: the default value of this Field (default takes precedence over the default_factory)
+        :type default: Any
+        :param default_factory: the default factory of this Field
+        :type mysql_type: Callable[[], Any]
+        :param python_type: python type of data, example: str, int (python_type takes precedence over the data type specified in the annotation)
+        :type python_type: Any
+        :param mysql_type: mysql type of data, example: 'varchar(50)', 'bigint'
+        :type mysql_type: str
+        :param repr: Indicates whether this field is visible in the repr method.
+        :type rept: bool
+        :param init: Indicates whether this field is set in the init method.
+        :type init: bool
+        :param kwargs:
+        """
         self.default = default
         self.default_factory = MISSING if default_factory is MISSING else Factory(default_factory)
         self.python_type = python_type
         self.mysql_type = mysql_type
         self.repr = repr
         self.init = init
+
     def __repr__(self):
-        return f'DbField({", ".join([f"{i} = {self.__dict__[i]}" for i in self.__dict__ if self.__dict__[i] is not MISSING])})'
+        return f'''DbField({", ".join([f"{i} = {self.__dict__[i]}" for i in self.__dict__ if self.__dict__[i] is not MISSING])})'''
 
     def get_default(self):
         if self.default is not MISSING:
