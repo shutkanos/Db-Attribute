@@ -51,7 +51,7 @@ class AttributeObj(ConditionCore):
         default = field.get_default()
         python_type = field.python_type
         table_name = db_work.get_table_name(self.cls.__name__, self.attr)
-        sql_name = self.cls.__dbworkobj__.connobj.sql_name
+        sql_name = None if self.cls.__skip_dbworkobj__ else self.cls.__dbworkobj__.connobj.sql_name
         scr_table_name = db_work.screening(table_name, sql_name)
         scr_data = db_work.screening('data', sql_name)
         if default is db_types.NotSet or default is db_types.MISSING:
@@ -76,6 +76,7 @@ class Condition(ConditionCore):
             self.lambda_operator = lambda_operator
 
     def found(self):
+        db_types.cheak_db_work_object(self.cls)
         temp = self.cls.__dbworkobj__.found_ids_by_condition(class_name=self.cls.__name__, condition=self._get_condition_repr())
         if temp['status_code'] != 200:
             return db_types.Ids()
@@ -138,16 +139,17 @@ class DbAttributeDiscriptor:
         return self.field.get_default()
 
     def dump_attr_to_db(self, this, value, cheak_exists_value=True, update_value=False):
+        db_types.cheak_db_work_object(self.cls)
         db_field = self.cls.__db_fields__[self.public_name]
         attribute_type = db_field.python_type
         obj = db_class.cheaker.create_db_class(value, attribute_type=attribute_type, _obj_dbattribute=this)
         if db_work.get_table_name(self.cls.__name__, self.public_name) not in self.cls.__dbworkobj__.tables:
             self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, db_field=db_field)
-            cheak_exists_value = False
         ID = object.__getattribute__(this, 'id')
         self.cls.__dbworkobj__.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=obj, attribute_type=attribute_type)
 
     def get_attr_from_db(self, this):
+        db_types.cheak_db_work_object(self.cls)
         ID = object.__getattribute__(this, 'id')
         temp_data = object.__getattribute__(self.cls, '__dbworkobj__').get_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, _obj_dbattribute=this)
         if temp_data['status_code'] == 302: #table is not create
@@ -168,12 +170,15 @@ class DbAttributeDiscriptor:
     def dump_attr(self, this, cheak_exists=True):
         if cheak_exists and (not hasattr(this, self.private_name)):
             return
+        db_types.cheak_db_work_object(self.cls)
         self.dump_attr_to_db(this, getattr(this, self.private_name))
 
     def del_attr_from_db(self, this):
         ID = object.__getattribute__(this, 'id')
-        return object.__getattribute__(self.cls, '__dbworkobj__').del_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID)
+        db_types.cheak_db_work_object(self.cls)
+        return self.cls.__dbworkobj__.del_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID)
 
     def container_update(self, this, data=None):
         ID = object.__getattribute__(this, 'id')
+        db_types.cheak_db_work_object(self.cls)
         self.cls.__dbworkobj__.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=data, _cls_dbattribute=self.cls)

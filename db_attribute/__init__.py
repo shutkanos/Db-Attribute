@@ -21,10 +21,15 @@ class DbAttributeMetaclass(type):
         if not cheak_class_in_bases(bases, DbAttribute):
             bases = (DbAttribute,) + bases
 
-        new_cls = super().__new__(cls, name, bases, namespace)
+        new_cls: DbAttribute = super().__new__(cls, name, bases, namespace)
 
         params_for_metaclass = {'need_add_this_class_to_dict_classes': True, 'need_DbAttributeMetaclass': True}
-        options = {'__dbworkobj__': db_types.NotSet, '__max_repr_recursion_limit__': 10, '__repr_class_name__': db_types.NotSet}
+        options = {
+            '__dbworkobj__': db_types.NotSet,
+            '__max_repr_recursion_limit__': 10,
+            '__repr_class_name__': db_types.NotSet,
+            '__skip_dbworkobj__': False
+        }
 
         __annotations__ = {}
         __dict__ = {}
@@ -67,7 +72,7 @@ class DbAttributeMetaclass(type):
             if options[i] is not db_types.NotSet:
                 setattr(new_cls, i, options[i])
 
-        if getattr(new_cls, '__dbworkobj__', None) is None:
+        if (getattr(new_cls, '__dbworkobj__', None) is None) and (not getattr(new_cls, '__skip_dbworkobj__', False)):
             raise Exception(f'The "{new_cls.__name__}" class dosn\'t have "__dbworkobj__" parameter: set "__dbworkobj__" or "Meta", see documentation')
 
         attr_names = list(__annotations__.keys())
@@ -135,6 +140,7 @@ class DbAttributeMetaclass(type):
 
         init_code = (
             f"def __init__(self, {params_str}, id:int=db_types.NotSet, _dont_add_id:bool = False):\n"
+            "    db_types.cheak_db_work_object(self.__class__)\n"
             "    now_locals = locals()\n"
             "    used_keys = now_locals\n"
             "    for i in ['self', 'id', '_dont_add_id']:\n"
@@ -169,8 +175,8 @@ class DbAttributeMetaclass(type):
         if params_for_metaclass['need_add_this_class_to_dict_classes']:
             cls.dict_classes.add(new_cls)
 
-        if not new_cls.__dbworkobj__.cheak_exists_id_table(new_cls.__name__):
-            new_cls.__dbworkobj__.create_id_table(new_cls.__name__)
+        if not new_cls.__skip_dbworkobj__:
+            new_cls.register_dbworkobj(new_cls.__dbworkobj__)
 
         return new_cls
 
@@ -183,6 +189,7 @@ class DbAttribute:
     __dbworkobj__: ClassVar[db_work.Db_work] = None
     __max_repr_recursion_limit__: ClassVar[int] = 10
     __repr_class_name__: ClassVar[str] = db_types.NotSet
+    __skip_dbworkobj__: ClassVar[bool] = False
 
     def __init__(self, *args, ID=None, **kwargs):
         raise 'Need set metaclass=DbAttributeMetaclass'
@@ -209,6 +216,7 @@ class DbAttribute:
 
     @classmethod
     def _db_attribute_found_ids_by_attribute(cls, attribute_name:str, attribute_value):
+        db_types.cheak_db_work_object(cls)
         tempdata = cls.__dbworkobj__.found_ids_by_value(class_name=cls.__name__, attribute_name=attribute_name, data=attribute_value, _cls_dbattribute=cls)
         if tempdata['status_code'] != 200:
             return set()
@@ -239,6 +247,7 @@ class DbAttribute:
 
     @classmethod
     def get_all_ids(cls):
+        db_types.cheak_db_work_object(cls)
         temp = cls.__dbworkobj__.get_all_ids(cls.__name__)
         if temp['status_code'] != 200:
             return db_types.Ids()
@@ -293,6 +302,7 @@ class DbAttribute:
 
     @classmethod
     def delete_objs(cls, IDs: set[int] | int, attributes:set[str]=None):
+        db_types.cheak_db_work_object(cls)
         all_attributes = object.__getattribute__(cls, '__db_fields__')
         attributes = all_attributes if attributes is None else attributes & all_attributes
         IDs = {IDs} if isinstance(IDs, int) else IDs
@@ -320,3 +330,10 @@ class DbAttribute:
         for key in kwargs:
             res &= cls._db_attribute_found_ids_by_attribute(attribute_name=key, attribute_value=kwargs[key])
         return res
+
+    @classmethod
+    def register_dbworkobj(cls, dbworkobj):
+        cls.__dbworkobj__ = dbworkobj
+        cls.__skip_dbworkobj__ = False
+        if not cls.__dbworkobj__.cheak_exists_id_table(cls.__name__):
+            cls.__dbworkobj__.create_id_table(cls.__name__)

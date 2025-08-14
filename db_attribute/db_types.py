@@ -5,14 +5,14 @@ import db_attribute
 
 db_class = db_attribute.db_class
 
-class _NotSetMetaClass(type):
+class _ReprMetaClass(type):
     def __repr__(cls):
         return cls.__name__
 
-class NotSet(metaclass=_NotSetMetaClass):
+class NotSet(metaclass=_ReprMetaClass):
     pass
 
-class MISSING(metaclass=_NotSetMetaClass):
+class MISSING(metaclass=_ReprMetaClass):
     pass
 
 class Id:
@@ -173,6 +173,10 @@ def _created_db_class(cls):
 
     db_class.cheaker.add_db_class((cls, ContainerDbAttribute))
     return ContainerDbAttribute
+
+def cheak_db_work_object(cls):
+    if cls.__skip_dbworkobj__:
+        raise Exception(f'For this operation, set the value of the __dbworkobj__ parameter of the {cls} class using the "register_dbworkobj" method')
 
 #dict_classes = DictClasses()
 
