@@ -13,7 +13,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='db_attribute',
-    version='2.1',
+    version='2.1.1',
     description='DataBase attribute package',
     long_description=long_description,
     long_description_content_type='text/markdown',
