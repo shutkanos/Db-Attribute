@@ -56,7 +56,7 @@ class Factory:
         return 'FACTORY'
 
 class DbField:
-    def __init__(self, default:Any=MISSING, default_factory:Callable[[], Any]=MISSING, python_type:Any=MISSING, mysql_type:str=MISSING, repr=True, init=True, **kwargs):
+    def __init__(self, default:Any=MISSING, default_factory:Callable[[], Any]=MISSING, python_type:Any=MISSING, mysql_type:str=MISSING, repr:bool=True, init:bool=True, search_default:bool=True, **kwargs):
         """
         :param default: the default value of this Field (default takes precedence over the default_factory)
         :type default: Any
@@ -66,10 +66,12 @@ class DbField:
         :type python_type: Any
         :param mysql_type: mysql type of data, example: 'varchar(50)', 'bigint'
         :type mysql_type: str
-        :param repr: Indicates whether this field is visible in the repr method.
-        :type rept: bool
-        :param init: Indicates whether this field is set in the init method.
+        :param repr: Include field in `__repr__()` output
+        :type repr: bool
+        :param init: Include field in constructor (`__init__()`)
         :type init: bool
+        :param search_default: When True, applies default value during searches if record is missing in this field's table (Use this parameter if you understand what it is responsible for.)
+        :type search_default: bool
         :param kwargs:
         """
         self.default = default
@@ -78,6 +80,8 @@ class DbField:
         self.mysql_type = mysql_type
         self.repr = repr
         self.init = init
+        self.search_default = search_default
+
 
     def __repr__(self):
         return f'''DbField({", ".join([f"{i} = {self.__dict__[i]}" for i in self.__dict__ if self.__dict__[i] is not MISSING])})'''

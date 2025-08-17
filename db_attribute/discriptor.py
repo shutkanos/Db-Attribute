@@ -54,7 +54,7 @@ class AttributeObj(ConditionCore):
         sql_name = None if self.cls.__skip_dbworkobj__ else self.cls.__dbworkobj__.connobj.sql_name
         scr_table_name = db_work.screening(table_name, sql_name)
         scr_data = db_work.screening('data', sql_name)
-        if default is db_types.NotSet or default is db_types.MISSING:
+        if (not field.search_default) or default is db_types.NotSet or default is db_types.MISSING:
             return f'{scr_table_name}.{scr_data}'
         temp = db_work.convert_attribute_value_to_mysql_value(default, python_type)
         if temp['status_code'] != 200:
