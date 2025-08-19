@@ -142,7 +142,7 @@ class DbAttributeDiscriptor:
         db_types.cheak_db_work_object(self.cls)
         db_field = self.cls.__db_fields__[self.public_name]
         attribute_type = db_field.python_type
-        obj = db_class.cheaker.create_db_class(value, attribute_type=attribute_type, _obj_dbattribute=this)
+        obj = db_class.cheaker.convert_to_db(value, attribute_type=attribute_type, _obj_dbattribute=this)
         if db_work.get_table_name(self.cls.__name__, self.public_name) not in self.cls.__dbworkobj__.tables:
             self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, db_field=db_field)
         ID = object.__getattribute__(this, 'id')
@@ -161,7 +161,7 @@ class DbAttributeDiscriptor:
                 raise Exception(connector.status_cod[305]['eng'])
             self.__set__(this, value) #set the new attr
             attribute_type = self.cls.__db_fields__[self.public_name].python_type
-            value = db_class.cheaker.create_db_class(value, attribute_type=attribute_type, _obj_dbattribute=this, _name_attribute=self.public_name) #convert attr to DbClasses
+            value = db_class.cheaker.convert_to_db(value, attribute_type=attribute_type, _obj_dbattribute=this, _name_attribute=self.public_name) #convert attr to DbClasses
             return value
         if temp_data['status_code'] != 200:
             return None

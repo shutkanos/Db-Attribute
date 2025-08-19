@@ -49,7 +49,7 @@ def convert_attribute_value_to_mysql_value(attribute_value, attribute_type):
     if db_class.cheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True) or db_class.cheaker.this_support_class(attribute_type, this_is_cls=True):
         if db_class.cheaker.this_db_attribute_support_class(attribute_value):
             return {'status_code': 200, 'data': f'CAST({json.dumps(attribute_value.dumps(), ensure_ascii=False)} AS JSON)'}
-        return {'status_code': 200, 'data': f'CAST({json.dumps(db_class.cheaker.create_db_class(attribute_value).dumps(), ensure_ascii=False)} AS JSON)'}
+        return {'status_code': 200, 'data': f'CAST({json.dumps(db_class.cheaker.convert_to_db(attribute_value).dumps(), ensure_ascii=False)} AS JSON)'}
     return {'status_code': 300}
 
 def convert_mysql_value_to_attribute_value(mysql_value, attribute_type, _obj_dbattribute=None, attribute_name=None):
