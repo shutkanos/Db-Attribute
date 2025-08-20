@@ -139,7 +139,7 @@ class DbAttributeMetaclass(type):
         params_str = ', '.join(params)
 
         init_code = (
-            f"def __init__(self, {params_str}, id:int=db_types.NotSet, _dont_add_id:bool = False):\n"
+            f"def __init__(self, {params_str + ', ' if params_str else ''}id:int=db_types.NotSet, _dont_add_id:bool = False):\n"
             "    db_types.cheak_db_work_object(self.__class__)\n"
             "    now_locals = locals()\n"
             "    used_keys = now_locals\n"

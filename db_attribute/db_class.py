@@ -85,7 +85,6 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
                 if convert_arguments:
                     args = (cheaker.convert_to_db(i, _first_container=self._first_container) for i in args)
                     kwargs = {key: cheaker.convert_to_db(kwargs[key], _first_container=self._first_container) for key in kwargs}
-
                 data = truefunc(self, *args, **kwargs)
                 if _update: self._update_obj()
                 return data
@@ -116,6 +115,10 @@ class DbClass:
     _first_container = None
     _call_init_when_reconstruct = False
     _methode__new__needs_arguments = False
+    """
+    :param _methode__new__needs_arguments: Set True, if __new__ methode need any args, ex: cls.__new__(cls, *args, **kwargs)
+    :param _call_init_when_reconstruct: Set True, if need to call init, when this object reconstruct to db_obj (it's ignored, if class has the __convert_to_db__ methode)
+    """
 
     def __new__(cls, *args, _use_db=False, _obj_dbattribute=None, _convert_arguments=True, _name_attribute=None, _first_container=None, **kwargs):
         if not _use_db:
