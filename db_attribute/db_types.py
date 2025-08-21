@@ -175,14 +175,12 @@ def _created_db_class(cls):
 
     ContainerDbAttribute.__name__ = f'ContainerDbAttribute_{cls.__name__}'
 
-    db_class.cheaker.add_db_class((cls, ContainerDbAttribute))
+    db_class.DbClassManager.add_db_class(cls, ContainerDbAttribute)
     return ContainerDbAttribute
 
 def cheak_db_work_object(cls):
     if cls.__skip_dbworkobj__:
         raise Exception(f'For this operation, set the value of the __dbworkobj__ parameter of the {cls} class using the "register_dbworkobj" method')
-
-#dict_classes = DictClasses()
 
 if __name__ == "__main__":
     Field = DbField(default_factory=lambda:10)

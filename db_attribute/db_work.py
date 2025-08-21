@@ -29,7 +29,7 @@ def convert_attribute_type_to_mysql_type(attribute_type, len_varchar=50):
         return {'status_code': 200, 'data': f'bigint'}
     if attribute_type == float or attribute_type == bool:
         return {'status_code': 200, 'data': attribute_type.__name__.upper()}
-    if db_class.cheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True) or db_class.cheaker.this_support_class(attribute_type, this_is_cls=True) or attribute_type is db_types.JsonType:
+    if db_class.DbClassCheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True) or db_class.DbClassCheaker.this_support_class(attribute_type, this_is_cls=True) or attribute_type is db_types.JsonType:
         return {'status_code': 200, 'data': 'json'}
     return {'status_code': 300}
 
@@ -46,10 +46,10 @@ def convert_attribute_value_to_mysql_value(attribute_value, attribute_type):
         if type(attribute_value) is int:
             return {'status_code': 200, 'data': f'{attribute_value}'}
         return {'status_code': 200, 'data': f'{object.__getattribute__(attribute_value, "id")}'}
-    if db_class.cheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True) or db_class.cheaker.this_support_class(attribute_type, this_is_cls=True):
-        if db_class.cheaker.this_db_attribute_support_class(attribute_value):
+    if db_class.DbClassCheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True) or db_class.DbClassCheaker.this_support_class(attribute_type, this_is_cls=True):
+        if db_class.DbClassCheaker.this_db_attribute_support_class(attribute_value):
             return {'status_code': 200, 'data': f'CAST({json.dumps(attribute_value.dumps(), ensure_ascii=False)} AS JSON)'}
-        return {'status_code': 200, 'data': f'CAST({json.dumps(db_class.cheaker.convert_to_db(attribute_value).dumps(), ensure_ascii=False)} AS JSON)'}
+        return {'status_code': 200, 'data': f'CAST({json.dumps(db_class.DbClassConverter.convert_to_db(attribute_value).dumps(), ensure_ascii=False)} AS JSON)'}
     return {'status_code': 300}
 
 def convert_mysql_value_to_attribute_value(mysql_value, attribute_type, _obj_dbattribute=None, attribute_name=None):
@@ -61,7 +61,7 @@ def convert_mysql_value_to_attribute_value(mysql_value, attribute_type, _obj_dba
         return {'status_code': 200, 'data': orjson.loads(mysql_value)}
     if issubclass(attribute_type, db_attribute.DbAttribute):
         return {'status_code': 200, 'data': attribute_type.get(id=mysql_value)}
-    if db_class.cheaker.this_support_class(attribute_type, this_is_cls=True) or db_class.cheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True):
+    if db_class.DbClassCheaker.this_support_class(attribute_type, this_is_cls=True) or db_class.DbClassCheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True):
         return {'status_code': 200, 'data': db_class.DbClass.loads(mysql_value, _obj_dbattribute=_obj_dbattribute, _name_attribute=attribute_name)}
     return {'status_code': 300}
 

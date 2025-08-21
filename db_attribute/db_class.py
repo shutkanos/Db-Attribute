@@ -17,8 +17,8 @@ def MethodDecorator(func=None, /, convert_arguments=True, call_the_decoreted_fun
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if convert_arguments:
-                args = (cheaker.convert_to_db(i, _first_container=self._first_container if self._first_container else _FirstContainer(self)) for i in args)
-                kwargs = {key: cheaker.convert_to_db(kwargs[key], _first_container=self._first_container if self._first_container else _FirstContainer(self)) for key in kwargs}
+                args = (DbClassConverter.convert_to_db(i, _first_container=self._first_container if self._first_container else _FirstContainer(self)) for i in args)
+                kwargs = {key: DbClassConverter.convert_to_db(kwargs[key], _first_container=self._first_container if self._first_container else _FirstContainer(self)) for key in kwargs}
 
             if call_the_decoreted_func:
                 data = func(self, *args, **kwargs)
@@ -35,7 +35,7 @@ def MethodDecorator(func=None, /, convert_arguments=True, call_the_decoreted_fun
         return wrap(func)
     return wrap
 
-def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, convert_arguments_changes_methodes=True, list_of_non_replaceable_methodes=None, list_of_methodes_with_converted_arguments=None, methode__new__needs_arguments=False):
+def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, convert_arguments_changes_methodes=True, list_of_non_replaceable_methodes=None, list_of_methodes_with_converted_arguments=None, methode__new__needs_arguments=False, add_class_to_db_class_manager=True):
     """
     Use DbClassDecorator for
     1) set cls._standart_class (example: for DbList standart class is list)
@@ -48,6 +48,8 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
     :param convert_arguments_changes_methodes: convert input arguments of changes metodes (__delitem__, __setattr__) to DbClasses
     :param list_of_non_replaceable_methodes: list of method names that belong to the parent class and will not be replaced by the decorator, ex: ['__iadd__']
     :param list_of_methodes_with_converted_arguments: list of methods that need to be individually replaced with arguments, but param convert_arguments... is False, ex: ['__iadd__']
+    :param methode__new__needs_arguments:
+    :param add_class_to_db_class_manager: if True, add this class to DbClassManager (DbClassManager.add_db_class)
     :return:
     """
     if list_of_non_replaceable_methodes is None:
@@ -58,8 +60,10 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
         if cls.__dict__.get('_standart_class', None) is None:
             ind = cls.__mro__.index(DbClass)
             if ind + 1 == len(cls.__mro__):
-                raise f'The DbClass the last in {cls}.__mro__, please set _standart_class, or add perent to class'
+                raise Exception(f'The DbClass the last in {cls}.__mro__, please set _standart_class, or add perent to class')
             cls._standart_class = cls.__mro__[ind + 1]
+        if cls.__dict__.get('_standart_class', object) is object and (cls.__name__ != 'DbClass'):
+            raise Exception('Please, set the standart class (see documentation)')
         if cls.__dict__.get('_methode__new__needs_arguments', None) is None:
             cls._methode__new__needs_arguments = methode__new__needs_arguments
 
@@ -69,8 +73,8 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
                 convert_arguments = True
             def wrapper(self, *args, _update=True, **kwargs):
                 if convert_arguments:
-                    args = (cheaker.convert_to_db(i, _first_container=self._first_container) for i in args)
-                    kwargs = {key: cheaker.convert_to_db(kwargs[key], _first_container=self._first_container) for key in kwargs}
+                    args = (DbClassConverter.convert_to_db(i, _first_container=self._first_container) for i in args)
+                    kwargs = {key: DbClassConverter.convert_to_db(kwargs[key], _first_container=self._first_container) for key in kwargs}
                 obj = truefunc(self, *args, **kwargs)
                 if _update and isinstance(obj, DbClass):
                     obj._update_obj()
@@ -83,8 +87,8 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
                 convert_arguments = True
             def wrapper(self, *args, _update=True, **kwargs):
                 if convert_arguments:
-                    args = (cheaker.convert_to_db(i, _first_container=self._first_container) for i in args)
-                    kwargs = {key: cheaker.convert_to_db(kwargs[key], _first_container=self._first_container) for key in kwargs}
+                    args = (DbClassConverter.convert_to_db(i, _first_container=self._first_container) for i in args)
+                    kwargs = {key: DbClassConverter.convert_to_db(kwargs[key], _first_container=self._first_container) for key in kwargs}
                 data = truefunc(self, *args, **kwargs)
                 if _update: self._update_obj()
                 return data
@@ -98,6 +102,8 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
             if hasattr(cls, namefunc) and namefunc not in cls.__dict__ and namefunc not in list_of_non_replaceable_methodes:
                 func = getmethod(getattr(cls, namefunc), namefunc)
                 setattr(cls, namefunc, func)
+        if add_class_to_db_class_manager:
+            DbClassManager.add_db_class(cls._standart_class, cls)
         return cls
     if cls is None:
         return wrapper
@@ -106,6 +112,163 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
 class _FirstContainer:
     def __init__(self, _first_container=None):
         self.container = _first_container.container if isinstance(_first_container, _FirstContainer) else _first_container
+
+class DbClassManager:
+    """
+    Save the 'Db class' classes:
+
+    class_to_db_class = {list: DbList, dict: DbDict, set: DbSet} | *other*
+    db_class_name_to_db_class = {'DbList': DbList, 'DbSet': DbSet, 'DbDict': DbDict} | *other*
+    class_name_to_db_class = {'list': DbList, 'dict': DbDict, 'set': DbSet} | *other*
+    db_class_name_to_clasic_class = {'DbList': list, 'DbDict': dict, 'DbSet': set} | *other*
+    all_db_classes = {DbList, DbDict, DbSet}
+    """
+    class_to_db_class = dict()
+    db_class_name_to_db_class = dict()
+    class_name_to_db_class = dict()
+    db_class_name_to_clasic_class = dict()
+    all_db_classes = set()
+
+    @classmethod
+    def set_db_classes(cls, _db_classes: dict):
+        """
+        :param _db_classes: example: {datetime.datetime: DbDatetime}
+        :type _db_classes: dict
+        """
+        cls.class_to_db_class = _db_classes
+        if not _db_classes:
+            cls.class_to_db_class = dict()
+        cls.db_class_name_to_db_class = {cls.class_to_db_class[i].__name__ : cls.class_to_db_class[i] for i in cls.class_to_db_class}
+        cls.class_name_to_db_class = {i.__name__: cls.class_to_db_class[i] for i in cls.class_to_db_class}
+        cls.db_class_name_to_clasic_class = {cls.class_to_db_class[i].__name__: i for i in cls.class_to_db_class}
+        cls.all_db_classes = set(_db_classes.values())
+
+    @classmethod
+    def add_db_class(cls, from_db_class, to_db_class):
+        """
+        :param from_db_class: example: list, datetime.datetime, UserDataClass
+        :param to_db_class: example: DbList, DbDatetime, DbUserDataClass
+        """
+        cls.class_to_db_class[from_db_class] = to_db_class
+        cls.db_class_name_to_db_class[to_db_class.__name__] = to_db_class
+        cls.class_name_to_db_class[from_db_class.__name__] = to_db_class
+        cls.db_class_name_to_clasic_class[to_db_class.__name__] = from_db_class
+        cls.all_db_classes.add(to_db_class)
+
+    @classmethod
+    def remove_db_class(cls, name_clasic_class=None, name_db_class=None):
+        if name_clasic_class is None and name_db_class is None:
+            return
+        if name_db_class:
+            name_clasic_class = cls.db_class_name_to_clasic_class[name_db_class].__name__
+        elif name_clasic_class:
+            name_db_class = cls.class_name_to_db_class[name_clasic_class].__name__
+        db_class = cls.db_class_name_to_db_class[name_db_class]
+        del cls.class_to_db_class[db_class]
+        del cls.db_class_name_to_db_class[name_db_class]
+        del cls.class_name_to_db_class[name_clasic_class]
+        del cls.db_class_name_to_clasic_class[name_db_class]
+        cls.all_db_classes.discard(db_class)
+
+class DbClassConverter:
+    """
+    Convert the objects to 'Db class' type
+    """
+
+    @classmethod
+    def convert_from_db(cls, obj):
+        if type(obj) not in DbClassManager.all_db_classes:
+            return obj
+        if hasattr(obj, '__convert_from_db__'):
+            return obj.__convert_from_db__()
+        new_obj = object.__new__(obj._standart_class)
+        new_obj.__dict__ = {i: obj.__dict__[i] for i in obj.__dict__ if i not in {'_obj_dbattribute', '_name_attribute', '_first_container'}}
+        return new_obj
+
+    @classmethod
+    def convert_to_db(cls, obj, *, attribute_type=None, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        if (attribute_type is None and type(obj) in DbClassManager.class_to_db_class) or (attribute_type in DbClassManager.class_to_db_class):
+            if attribute_type is None:
+                attribute_type = type(obj)
+            Class = DbClassManager.class_to_db_class[attribute_type]
+            if hasattr(Class, '__convert_to_db__'):
+                return Class.__convert_to_db__(obj, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+            reductor = getattr(obj, "__reduce_ex__", None)
+            if reductor is not None:
+                rv = reductor(4)
+            else:
+                reductor = getattr(obj, "__reduce__", None)
+                if reductor:
+                    rv = reductor()
+                else:
+                    raise Exception(f"uncopyable object of type {type(obj)}")
+            if isinstance(rv, str):
+                raise Exception(f"uncopyable object of type {type(obj)}")
+            rv = list(rv)
+            if rv[0].__name__ == '__newobj__':
+                rv[0] = __newobj__
+            elif rv[0].__name__ == '__newobj_ex__':
+                rv[0] = __newobj_ex__
+            else:
+                rv[0] = __newobj__
+                rv[1] = (1,) + rv[1]
+            rv[1] = (Class,) + rv[1][1:]
+            obj = cls._reconstruct(*rv, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        return obj
+
+    @classmethod
+    def _reconstruct(cls, func, args, state=None, listiter=None, dictiter=None, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
+        y = func(*args, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        if _first_container is None:
+            _first_container = _FirstContainer(y)
+        if y.__dict__.get('_first_container', None) is None:
+            y.__dict__['_first_container'] = _first_container
+        if y._call_init_when_reconstruct:
+            y.__init__(*args[1:], _obj_dbattribute=None, _name_attribute=None, _first_container=None)
+        if state is not None:
+            if hasattr(y, '__setstate__'):
+                y.__setstate__(state)
+            else:
+                if isinstance(state, tuple) and len(state) == 2:
+                    state, slotstate = state
+                else:
+                    slotstate = None
+                if state is not None:
+                    state = {key: cls.convert_to_db(state[key], _first_container=_first_container) for key in state}
+                    y.__dict__.update(state)
+                if slotstate is not None:
+                    slotstate = {key: cls.convert_to_db(slotstate[key], _first_container=_first_container) for key in slotstate}
+                    for key, value in slotstate.items():
+                        setattr(y, key, value)
+        if listiter is not None:
+            for item in listiter:
+                y.append(cls.convert_to_db(item, _first_container=_first_container))
+        if dictiter is not None:
+            for key, value in dictiter:
+                y[key] = cls.convert_to_db(value, _first_container=_first_container)
+        temp = {'_first_container': _first_container}
+        if _obj_dbattribute:
+            temp['_obj_dbattribute'] = _obj_dbattribute
+        if _name_attribute:
+            temp['_name_attribute'] = _name_attribute
+        if hasattr(y, '__dict__'):
+            y.__dict__.update(temp)
+        else:
+            for key, value in temp.items():
+                setattr(y, key, value)
+        return y
+
+class DbClassCheaker:
+    """
+    Cheak, if this class supports for convert.
+    """
+    @classmethod
+    def this_support_class(cls, obj, this_is_cls=False):
+        return obj in DbClassManager.class_to_db_class if this_is_cls else type(obj) in DbClassManager.class_to_db_class
+
+    @classmethod
+    def this_db_attribute_support_class(cls, obj, this_is_cls=False):
+        return obj in DbClassManager.all_db_classes if this_is_cls else type(obj) in DbClassManager.all_db_classes
 
 @DbClassDecorator
 class DbClass:
@@ -151,10 +314,10 @@ class DbClass:
         return self.__get_repr__(set()) if hasattr(self, '__get_repr__') else super().__repr__()
 
     def __deepcopy__(self, memo):
-        return cheaker.convert_from_db(self)
+        return DbClassConverter.convert_from_db(self)
 
     def __copy__(self):
-        return cheaker.convert_from_db(self)
+        return DbClassConverter.convert_from_db(self)
 
     def __reduce_ex__(self, protocol):
         temp = super().__reduce_ex__(protocol)
@@ -213,14 +376,14 @@ class DbClass:
             raise Exception(
                 f"load error: {tempdata} is not dict or don't have the 't' key"
             )
-        loadcls = cheaker.db_class_name_to_db_class.get(tempdata['t'], None)
+        loadcls = DbClassManager.db_class_name_to_db_class.get(tempdata['t'], None)
         if loadcls is None:
             raise Exception(
                 f"load error: cheaker don't support the {tempdata['t']}, add this class to cheaker"
             )
         if hasattr(loadcls, '_loads'):
             return loadcls._loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
-        return cheaker.convert_to_db(pickle.loads(tempdata['d'].encode('latin1')), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        return DbClassConverter.convert_to_db(pickle.loads(tempdata['d'].encode('latin1')), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator(list_of_methodes_with_converted_arguments=['__iadd__'])
 class DbList(DbClass, list):
@@ -252,7 +415,7 @@ class DbList(DbClass, list):
         _first_container = self._first_container
         setitem = list.__setitem__
         for key in range(len(self)):
-            setitem(self, key, cheaker.convert_to_db(self[key], _first_container=_first_container))
+            setitem(self, key, DbClassConverter.convert_to_db(self[key], _first_container=_first_container))
 
     @MethodDecorator
     def append(self, item, /): pass
@@ -295,7 +458,7 @@ class DbSet(DbClass, set):
         super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False)
         iterable = set(args[0])
         if _convert_arguments:
-            iterable = {cheaker.convert_to_db(i, _first_container=self._first_container) for i in iterable}
+            iterable = {DbClassConverter.convert_to_db(i, _first_container=self._first_container) for i in iterable}
         set.__init__(self, iterable)
 
     def __repr__(self):
@@ -348,7 +511,7 @@ class DbDict(DbClass, dict):
             _first_container = self._first_container
             setitem = dict.__setitem__
             for key in self:
-                setitem(self, key, cheaker.convert_to_db(self[key], _first_container=_first_container))
+                setitem(self, key, DbClassConverter.convert_to_db(self[key], _first_container=_first_container))
 
     @classmethod
     def __convert_to_db__(cls, obj: dict, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
@@ -397,7 +560,7 @@ class DbTuple(DbClass, tuple):
 
         iterable = tuple(args[0])
         if (not _loads_iterable) and _convert_arguments:
-            iterable = tuple((cheaker.convert_to_db(i, _first_container=_first_container) for i in iterable))
+            iterable = tuple((DbClassConverter.convert_to_db(i, _first_container=_first_container) for i in iterable))
         if _loads_iterable:
             iterable = tuple((conver_json_value_to_atr_value(value, _first_container=_first_container) for value in iterable))
 
@@ -435,10 +598,10 @@ class DbTuple(DbClass, tuple):
         obj.__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
         return obj
 
-@DbClassDecorator
+@DbClassDecorator(add_class_to_db_class_manager=False)
 class Dbfrozenset(DbClass, frozenset): pass
 
-@DbClassDecorator
+@DbClassDecorator(add_class_to_db_class_manager=False)
 class DbDeque(DbClass, collections.deque):
     _methode__new__needs_arguments = True
     def __init__(self, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
@@ -446,7 +609,7 @@ class DbDeque(DbClass, collections.deque):
 
         iterable = args[0]
         if _convert_arguments:
-            iterable = [cheaker.convert_to_db(i, _first_container=self._first_container) for i in iterable]
+            iterable = [DbClassConverter.convert_to_db(i, _first_container=self._first_container) for i in iterable]
         collections.deque.__init__(self, iterable)
 
     @classmethod
@@ -456,18 +619,17 @@ class DbDeque(DbClass, collections.deque):
     def __convert_from_db__(self):
         return collections.deque(i.__convert_from_db__() if hasattr(i, '__convert_from_db__') else i for i in self)
 
-
 @DbClassDecorator
 class DbDatetime(DbClass, datetime.datetime):
     _methode__new__needs_arguments = True
     def __init__(self, year, month=None, day=None, hour=0, minute=0, second=0, microsecond=0, tzinfo=None, *, fold=0, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
         super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
     def __iadd__(self, other):
-        obj = cheaker.convert_to_db(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
+        obj = DbClassConverter.convert_to_db(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
         return obj
     def __isub__(self, other):
-        obj = cheaker.convert_to_db(self.__sub__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
+        obj = DbClassConverter.convert_to_db(self.__sub__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
         return obj
 
@@ -493,12 +655,12 @@ class DbDate(DbClass, datetime.date):
         super().__init__(year=year, month=month, day=day, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
 
     def __iadd__(self, other):
-        obj = cheaker.convert_to_db(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
+        obj = DbClassConverter.convert_to_db(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
         return obj
 
     def __isub__(self, other):
-        obj = cheaker.convert_to_db(self.__sub__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
+        obj = DbClassConverter.convert_to_db(self.__sub__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
         return obj
 
@@ -524,11 +686,11 @@ class DbTime(DbClass, datetime.time):
         super().__init__(_obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
 
     def __iadd__(self, other):
-        obj = cheaker.convert_to_db(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
+        obj = DbClassConverter.convert_to_db(self.__add__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
         return obj
     def __isub__(self, other):
-        obj = cheaker.convert_to_db(self.__sub__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
+        obj = DbClassConverter.convert_to_db(self.__sub__(other), _obj_dbattribute=self._obj_dbattribute, _name_attribute=self._name_attribute, _first_container=self._first_container)
         if self._first_container.container is self: obj.__dict__['_first_container'].container = obj
         return obj
 
@@ -564,153 +726,9 @@ class DbTimedelta(DbClass, datetime.timedelta):
     def _loads(cls, tempdata: dict, *, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
         return cls(seconds=tempdata['d'], _use_db=True, _first_container=_first_container)
 
-class Cheaker:
-    """
-    cheak, if this class is db_class. Convert obj if his class is db_class. And other.
-
-    db_class_name_to_db_class: {'DbList': DbList, 'DbSet': DbSet, 'DbDict': DbDict} | *other db classes*
-    class_name_to_db_class = {'list': DbList, 'dict': DbDict, 'set': DbSet} | *other db classes*
-    class_to_db_class = {list: DbList, dict: DbDict, set: DbSet} | *other db classes*
-    """
-    def __init__(self, _db_classes:dict = None):
-        """
-        :param _db_classes: example: {datetime.datetime: DbDatetime}
-        :type _db_classes: dict
-        """
-        self._db_classes = _db_classes
-        if not _db_classes:
-            self._db_classes = dict()
-        self.db_class_name_to_db_class = {self._db_classes[i].__name__ : self._db_classes[i] for i in self._db_classes}
-        self.class_name_to_db_class = {i.__name__: self._db_classes[i] for i in self._db_classes}
-        self.db_class_name_to_clasic_class = {self._db_classes[i].__name__: i for i in self._db_classes}
-        self.all_db_classes = set(_db_classes.values())
-
-
-    def set_db_classes(self, _db_classes: dict):
-        """
-        :param _db_classes: example: {datetime.datetime: DbDatetime}
-        :type _db_classes: dict
-        """
-        self._db_classes = _db_classes
-        if not _db_classes:
-            self._db_classes = dict()
-        self.db_class_name_to_db_class = {self._db_classes[i].__name__ : self._db_classes[i] for i in self._db_classes}
-        self.class_name_to_db_class = {i.__name__: self._db_classes[i] for i in self._db_classes}
-        self.db_class_name_to_clasic_class = {self._db_classes[i].__name__: i for i in self._db_classes}
-        self.all_db_classes = set(_db_classes.values())
-
-    def add_db_class(self, _db_class: tuple):
-        """:param _db_class: example: (datetime.datetime, DbDatetime)"""
-        self._db_classes[_db_class[0]] = _db_class[1]
-        self.db_class_name_to_db_class[_db_class[1].__name__] = _db_class[1]
-        self.class_name_to_db_class[_db_class[0].__name__] = _db_class[1]
-        self.db_class_name_to_clasic_class[_db_class[1].__name__] = _db_class[0]
-        self.all_db_classes.add(_db_class[1])
-
-    def remove_db_class(self, name_clasic_class=None, name_db_class=None):
-        if name_clasic_class is None and name_db_class is None:
-            return
-        if name_db_class:
-            name_clasic_class = self.db_class_name_to_clasic_class[name_db_class].__name__
-        elif name_clasic_class:
-            name_db_class = self.class_name_to_db_class[name_clasic_class].__name__
-        db_class = self.db_class_name_to_db_class[name_db_class]
-        del self._db_classes[db_class]
-        del self.db_class_name_to_db_class[name_db_class]
-        del self.class_name_to_db_class[name_clasic_class]
-        del self.db_class_name_to_clasic_class[name_db_class]
-        self.all_db_classes.discard(db_class)
-
-    def convert_from_db(self, obj):
-        if not isinstance(obj, DbClass):
-            return obj
-        if hasattr(obj, '__convert_from_db__'):
-            return obj.__convert_from_db__()
-        new_obj = object.__new__(obj._standart_class)
-        new_obj.__dict__ = {i: obj.__dict__[i] for i in obj.__dict__ if i not in {'_obj_dbattribute', '_name_attribute', '_first_container'}}
-        return new_obj
-
-    def convert_to_db(self, obj, *, attribute_type=None, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
-        if (attribute_type is None and type(obj) in self._db_classes) or (attribute_type in self._db_classes):
-            if attribute_type is None:
-                attribute_type = type(obj)
-            cls = self._db_classes[attribute_type]
-            if hasattr(cls, '__convert_to_db__'):
-                return cls.__convert_to_db__(obj, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
-            reductor = getattr(obj, "__reduce_ex__", None)
-            if reductor is not None:
-                rv = reductor(4)
-            else:
-                reductor = getattr(obj, "__reduce__", None)
-                if reductor:
-                    rv = reductor()
-                else:
-                    raise Exception(f"uncopyable object of type {type(obj)}")
-            if isinstance(rv, str):
-                raise Exception(f"uncopyable object of type {type(obj)}")
-            rv = list(rv)
-            if rv[0].__name__ == '__newobj__':
-                rv[0] = __newobj__
-            elif rv[0].__name__ == '__newobj_ex__':
-                rv[0] = __newobj_ex__
-            else:
-                rv[0] = __newobj__
-                rv[1] = (1,) + rv[1]
-            rv[1] = (cls,) + rv[1][1:]
-            obj = self._reconstruct(*rv,  _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
-        return obj
-
-    def _reconstruct(self, func, args, state=None, listiter=None, dictiter=None, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
-        y = func(*args, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
-        if _first_container is None:
-            _first_container = _FirstContainer(y)
-        if y.__dict__.get('_first_container', None) is None:
-            y.__dict__['_first_container'] = _first_container
-        if y._call_init_when_reconstruct:
-            y.__init__(*args[1:], _obj_dbattribute=None, _name_attribute=None, _first_container=None)
-        if state is not None:
-            if hasattr(y, '__setstate__'):
-                y.__setstate__(state)
-            else:
-                if isinstance(state, tuple) and len(state) == 2:
-                    state, slotstate = state
-                else:
-                    slotstate = None
-                if state is not None:
-                    state = {key: self.convert_to_db(state[key], _first_container=_first_container) for key in state}
-                    y.__dict__.update(state)
-                if slotstate is not None:
-                    slotstate = {key: self.convert_to_db(slotstate[key], _first_container=_first_container) for key in slotstate}
-                    for key, value in slotstate.items():
-                        setattr(y, key, value)
-        if listiter is not None:
-            for item in listiter:
-                y.append(self.convert_to_db(item, _first_container=_first_container))
-        if dictiter is not None:
-            for key, value in dictiter:
-                y[key] = self.convert_to_db(value, _first_container=_first_container)
-        temp = {'_first_container': _first_container}
-        if _obj_dbattribute:
-            temp['_obj_dbattribute'] = _obj_dbattribute
-        if _name_attribute:
-            temp['_name_attribute'] = _name_attribute
-        if hasattr(y, '__dict__'):
-            y.__dict__.update(temp)
-        else:
-            for key, value in temp.items():
-                setattr(y, key, value)
-        return y
-
-    def this_support_class(self, obj, this_is_cls=False):
-        return obj in self._db_classes if this_is_cls else type(obj) in self._db_classes
-
-    def this_db_attribute_support_class(self, obj, this_is_cls=False):
-        return obj in self.all_db_classes if this_is_cls else type(obj) in self.all_db_classes
-
 class Tlist(list): pass
 class Tset(set): pass
 class Tdict(dict): pass
-
 
 def __newobj_ex__(cls, args, kwargs, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
     return cls.__new__(cls, *args, *kwargs, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
@@ -718,7 +736,7 @@ def __newobj__(cls, *args, _obj_dbattribute=None, _name_attribute=None, _first_c
     return cls.__new__(cls, *args, _use_db=True, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 def convert_atr_value_to_json_value(value):
-    return value.dumps(_return_json=False) if cheaker.this_db_attribute_support_class(value) else value
+    return value.dumps(_return_json=False) if DbClassCheaker.this_db_attribute_support_class(value) else value
 
 def conver_json_value_to_atr_value(value, _obj_dbattribute=None, _name_attribute=None, _first_container=None):
     if isinstance(value, dict):
@@ -743,8 +761,6 @@ def convert_json_key_to_atr_key(key, type_key):
     if type_key == 'bool':
         return True if key == ' True ' else False
     return key
-
-cheaker = Cheaker({set: DbSet, list: DbList, dict: DbDict, tuple: DbTuple, datetime.datetime: DbDatetime, datetime.timedelta: DbTimedelta, datetime.date: DbDate, datetime.time: DbTime})
 
 if __name__ == "__main__":
     print(1)
@@ -869,7 +885,7 @@ if __name__ == "__main__":
         print(id(B), id(B._first_container.container), id(B[0]._first_container.container), id(B[0][0]._first_container.container))
         print(id(B._first_container), id(B[0]._first_container), id(B[0][0]._first_container))
 
-    B = cheaker.convert_to_db([[1, (2, (3,), [4], datetime.datetime(2024, 10, 4)), {5, (6, (7,))}, {(8, 3), 5}], (9, (10,), [11])])
+    B = DbClassConverter.convert_to_db([[1, (2, (3,), [4], datetime.datetime(2024, 10, 4)), {5, (6, (7,))}, {(8, 3), 5}], (9, (10,), [11])])
     if B != [[1, (2,(3,),[4],datetime.datetime(2024, 10, 4)), {5, (6,(7,))}, {(8, 3), 5}], (9,(10,),[11])]:
         print('9.3.a error:')
         print(B, type(B))
@@ -885,7 +901,7 @@ if __name__ == "__main__":
         print('9.3.b error:')
         print(B, type(B), temp_func(B))
 
-    B = cheaker.convert_to_db({(1, 2): [3, 4], 5: {6, (7,)}, 8: (9, {10:11})})
+    B = DbClassConverter.convert_to_db({(1, 2): [3, 4], 5: {6, (7,)}, 8: (9, {10:11})})
     if B != {(1, 2): [3, 4], 5: {6, (7,)}, 8: (9, {10:11})} or type(B) is not DbDict:
         print('9.4.a error:')
         print(B, type(B))
@@ -905,7 +921,7 @@ if __name__ == "__main__":
     if A != datetime.datetime(2024, 11, 4) or type(A) is not DbDatetime:
         print('10.1.1 error:')
         print(A, type(A))
-    A = cheaker.convert_to_db(datetime.datetime(2024, 11, 4))
+    A = DbClassConverter.convert_to_db(datetime.datetime(2024, 11, 4))
     if A != datetime.datetime(2024, 11, 4) or type(A) is not DbDatetime:
         print('10.1.2 error:')
         print(A, type(A))
@@ -978,8 +994,8 @@ if __name__ == "__main__":
     #test(DbDict, {0: [[1, 2], [3, 4], [5, 6]], 1: {1, ((2,), (3,))}, 2: {1: {2: (3, ), 4: (5,)}, 6: {7: (8,)}}})
     #test(DbList, [[[1, 2], [3, 4], [5, 6]], {1, ((2,), (3,))}, {1: {2: (3, ), 4: (5,)}, 6: {7: (8,)}}])
     print(12, 'convert from db test')
-    A = cheaker.convert_to_db([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
-    B = cheaker.convert_from_db(A)
+    A = DbClassConverter.convert_to_db([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+    B = DbClassConverter.convert_from_db(A)
     if B != A or type(B) is not list or type(B[0][0]) is not list:
         print(A, type(A), type(A[0]), type(A[0][0]), type(A[0][0][0]))
         print(B, type(B), type(B[0]), type(B[0][0]), type(B[0][0][0]))

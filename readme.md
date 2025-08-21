@@ -26,6 +26,9 @@ User.get((User.age > 18) & (User.name == "John"))
 ```
 The library provides tools for declarative model definition, relationship management, and database operation optimization through configurable synchronization modes.
 
+# Table of contents
+
+* [Table of contents](#table-of-contents)
 * [Supported types](#supported-types)
 * [Install](#install)
 * [How to use it](#how-to-use-it)
@@ -40,6 +43,7 @@ The library provides tools for declarative model definition, relationship manage
     * [Types](#types)
         * [Db attribute](#db-attribute)
         * [Db classes](#db-classes)
+        * [Custom Db Classes](#custom-db-classes) 
         * [Json type](#json-type)
 * [Speed Test](#speed-test)
     * [Get attr](#get-attr)
@@ -356,6 +360,64 @@ print(obj.list_of_books.dumps()) #{"t": "DbList", "d": [1, 2, 3]}
 obj = User(1, times=[datetime(2024, 1, 1), datetime(2027, 7, 7)])
 print(obj.list_of_books.dumps())
 #{"t": "DbList", "d": [{"t": "DbDatetime", "d": "2024-01-01T00:00:00"}, {"t": "DbDatetime", "d": "2027-07-07T00:00:00"}]}
+```
+
+### Custom Db Classes
+
+And to create a custom 'Db class', you need to
+* Create regular class
+* Inherit from DbClass (DbClass - first. It is important) and your regular class for custom Db class
+* Set a Decorator with or without the necessary parameters
+* Set at least the `__convert_to_db__` module, according to the documentation
+* add additional modules.
+
+```python
+from db_attribute import db_class
+
+# for exemple you have your class:
+
+class UserDataClass:
+    def __init__(self, value = None):
+        self.value = value
+    def __repr__(self):
+        return f'UserDataClass(value={self.value})'
+
+@db_class.DbClassDecorator
+class DbUserDataClass(db_class.DbClass, UserDataClass):
+    def __init__(self, value=None, **kwargs):
+        # This is not a mandatory method
+        super().__init__(_call_init=False, **kwargs) # But this call is mandatory
+        self.__dict__['value'] = value
+        # Here we set the value of a variable using __dict__.
+        # This is not necessary, but it speeds up the work with the class.
+
+    @classmethod
+    def __convert_to_db__(cls, obj: UserDataClass, **kwargs):
+        """Methode for convert obj to dbclass - need @classmethod and kwargs"""
+        # This is a mandatory method
+        # Call with _user_db=True
+        # Example:
+        # print(type(DbUserDataClass(value=10)))                #UserDataClass
+        # print(type(DbUserDataClass(value=10, _use_db=True)))  #DbUserDataClass
+        return cls(_use_db=True, value=obj.value, **kwargs)
+
+    def __convert_from_db__(self):
+        """Reverse convert"""
+        # This is not a mandatory method.
+        return self._standart_class(value=self.value)
+```
+
+For example:
+
+```python
+class User(DbAttribute, metaclass=DbAttributeMetaclass):
+    Meta = BaseMeta
+    data: UserDataClass
+
+user = User(id=1, data=UserDataClass(10))
+print(user.data) # UserDataClass(value=10)
+user.data.value = 5
+print(user.data) # UserDataClass(value=5)
 ```
 
 ### Json type
