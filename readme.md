@@ -155,20 +155,20 @@ print(obj) # User(id=5, name='Alica')
 If a developer needs to recreate an object, he can call DbAttribute cls with id.
 
 ```python
-obj = User(name='Ben', age=10, id=3) #insert obj to db
-print(obj) #User(id=3, name='Ben', age=10)
+obj = User(name='Ben', age=20, id=3) #insert obj to db
+print(obj) #User(id=3, name='Ben', age=20)
 
 obj = User(id=3)
-print(obj) #User(id=3, name='Ben', age=10)
+print(obj) #User(id=3, name='Ben', age=20)
 
 obj = User('Anna', id=3)
-print(obj) #User(id=3, name='Anna', age=10)
+print(obj) #User(id=3, name='Anna', age=20)
 
-obj = User(age=15, id=3)
-print(obj) #User(id=3, name='Anna', age=15)
+obj = User(age=25, id=3)
+print(obj) #User(id=3, name='Anna', age=25)
 
 obj = User(id=3)
-print(obj) #User(id=3, name='Anna', age=15)
+print(obj) #User(id=3, name='Anna', age=25)
 ```
 
 ### Finding objects
@@ -182,21 +182,22 @@ The `get()` method returns:
 
 ```python
 #create objs
-obj = User(name='Bob', age=2, id=1)
-obj = User(name='Bob', age=3, id=2)
-obj = User(name='Anna', age=2, id=3)
+obj = User(name='Bob', age=20, id=1)
+obj = User(name='Bob', age=30, id=2)
+obj = User(name='Anna', age=20, id=3)
 #finds objs
-print(User.get((User.age == 3) & (User.name == 'Bob'))) #User(id=2, name='Bob', age=3)
-print(User.get(User.name == 'Anna'))                    #User(id=3, name='Anna', age=2)
-print(User.get(User.name == 'Bob'))                     #User(id=1, name='Bob', age=2)
+print(User.get(id=2))                                   #User(id=2, name='Bob', age=30)
+print(User.get((User.age == 30) & (User.name == 'Bob')))#User(id=2, name='Bob', age=30)
+print(User.get(User.name == 'Anna'))                    #User(id=3, name='Anna', age=20)
+print(User.get(User.name == 'Bob'))                     #User(id=1, name='Bob', age=20)
 print(User.get(User.name == 'Other name'))              #None
 ```
 
 To check the correctness of writing a logical expression, you can:
 
 ```python
-print(User.name == 'Anna')                      #(User.name = 'Anna')
-print((User.age == 3) & (User.name == 'Bob'))   #((User.age = 3) and (User.name = 'Bob'))
+print(User.name == 'Anna')                     #(User.name = 'Anna')
+print((User.age == 30) & (User.name == 'Bob')) #((User.age = 30) and (User.name = 'Bob'))
 ```
 
 Use '&' and '|' instead of the 'and' and 'or' operators. The 'and' and 'or' operators are not supported
@@ -207,16 +208,16 @@ If a developer needs to iterate through all the elements of a class, they can us
 
 ```python
 print(list(User))
-#[User(id=1, name='Bob', age=3), User(id=2, name='Bob', age=2), User(id=3, name='Anna', age=2)]
+#[User(id=1, name='Bob', age=30), User(id=2, name='Bob', age=20), User(id=3, name='Anna', age=20)]
 
-print([i for i in User if i.age < 3])
-#[User(id=2, name='Bob', age=2), User(id=3, name='Anna', age=2)]
+print([i for i in User if i.age < 30])
+#[User(id=2, name='Bob', age=20), User(id=3, name='Anna', age=20)]
 
 for i in User:
     print(i)
-#User(id=1, name='Bob', age=3)
-#User(id=2, name='Bob', age=2)
-#User(id=3, name='Anna', age=2)
+#User(id=1, name='Bob', age=30)
+#User(id=2, name='Bob', age=20)
+#User(id=3, name='Anna', age=20)
 ```
 ⚠️ Iterations loads all objects - not recommended for large tables
 

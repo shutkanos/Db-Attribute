@@ -12,16 +12,15 @@ authors = [
     { name = "Shutkanos", email = "Shutkanos836926@mail.ru" }
 ]
 license = { text = "MIT" }
-keywords = ["db", "database", "attribute", "db_attribute", "db attribute", "DbAttribute", "database attribute"]
+keywords = ["db", "database", "attribute", "db_attribute", "db attribute", "DbAttribute", "database attribute", "orm", "ORM", "attribute orm", "attribute ORM", "attr", "attr ORM", "attr orm", "db attr", "DbAttr"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
 ]
 
 dependencies = [
-    # Пример зависимостей (замените на свои)
     "mysql-connector-python >= 1.4",
     "orjson"
 ]

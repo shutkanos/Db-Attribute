@@ -31,7 +31,7 @@ setup(
         'Programming Language :: Python :: 3',
     ],
 
-    keywords='db database attribute dbattribute db_attribute databaseattribute auto_attribute',
+    keywords=" ".join(["db", "database", "attribute", "db_attribute", "db attribute", "DbAttribute", "database attribute", "orm", "ORM", "attribute orm", "attribute ORM", "attr", "attr ORM", "attr orm", "db attr", "DbAttr"]),
     packages=['db_attribute'],
 
     install_requires=required,

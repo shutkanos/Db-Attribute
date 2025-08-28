@@ -148,7 +148,7 @@ class DictClasses:
                     self.needdata[value.name_cls].add(cls)
 
 def _created_db_class(cls):
-    @db_class.DbClassDecorator
+    @db_class.DbClassDecorator(add_class_to_db_class_manager=False)
     class ContainerDbAttribute(db_class.DbClass, cls, need_DbAttributeMetaclass=False, __repr_class_name__=cls.__name__):
         def __init__(self, id: int = NotSet, *args, _use_db=False, _convert_arguments=True, _obj_dbattribute=None, _name_attribute=None, _first_container=None, **kwargs):
             super().__init__(*args, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container, _call_init=False, **kwargs)
