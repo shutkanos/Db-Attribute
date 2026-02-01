@@ -1,3 +1,4 @@
+import orjson
 import db_attribute.db_types as db_types
 import db_attribute.db_class as db_class
 import db_attribute.db_work as db_work
@@ -155,18 +156,23 @@ class DbAttributeDiscriptor:
         db_types.cheak_db_work_object(self.cls)
         ID = object.__getattribute__(this, 'id')
         temp_data = object.__getattribute__(self.cls, '__dbworkobj__').get_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, attribute_type=attribute_type, _obj_dbattribute=this)
-        if temp_data['status_code'] == 302: #table is not create
+        status_code = temp_data['status_code']
+        if status_code == 302: #table is not create
             self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, _cls_dbattribute=self.cls)
             temp_data['status_code'] = 304
-        if temp_data['status_code'] == 304: #attr is not found
+        if status_code == 304 or status_code == 306: #attr is not found  or  cheaker can't load this class
             value = self.get_default_value()
             if value is db_types.NotSet:
-                raise Exception(f"The object argument ({self.cls.__name__}.{self.public_name}) has neither a default value nor a value in the database.")
+                if status_code == 304:
+                    raise Exception(f"The object argument ({self.cls.__name__}.{self.public_name}) has neither a default value nor a value in the database.")
+                else:
+                    temp = temp_data['info']
+                    raise Exception(f"The object argument ({self.cls.__name__}.{self.public_name}) can't be loaded from the database (the {'class' if temp is None else temp} is not supported), and this argument has no default value.")
             self.__set__(this, value) #set the new attr
             attribute_type = self.cls.__db_fields__[self.public_name].python_type
             value = db_class.DbClassConverter.convert_to_db(value, attribute_type=attribute_type, _obj_dbattribute=this, _name_attribute=self.public_name) #convert attr to DbClasses
             return value
-        if temp_data['status_code'] != 200:
+        if status_code != 200:
             return None
         return temp_data['data']
 

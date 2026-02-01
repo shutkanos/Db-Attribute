@@ -192,6 +192,9 @@ print(User.get((User.age == 30) & (User.name == 'Bob')))#User(id=2, name='Bob', 
 print(User.get(User.name == 'Anna'))                    #User(id=3, name='Anna', age=20)
 print(User.get(User.name == 'Bob'))                     #User(id=1, name='Bob', age=20)
 print(User.get(User.name == 'Other name'))              #None
+#finds all objs
+print(User.gets(User.name == 'Bob'))                    #[User(id=1, name='Bob', age=20), User(id=2, name='Bob', age=30)]
+print(User.gets([2, 3]))                                #[User(id=2, name='Bob', age=30), User(id=3, name='Anna', age=20)]
 ```
 
 To check the correctness of writing a logical expression, you can:

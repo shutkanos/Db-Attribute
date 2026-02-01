@@ -62,7 +62,10 @@ def convert_mysql_value_to_attribute_value(mysql_value, attribute_type, _obj_dba
     if issubclass(attribute_type, db_attribute.DbAttribute):
         return {'status_code': 200, 'data': attribute_type.get(id=mysql_value)}
     if db_class.DbClassCheaker.this_support_class(attribute_type, this_is_cls=True) or db_class.DbClassCheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True):
-        return {'status_code': 200, 'data': db_class.DbClass.loads(mysql_value, _obj_dbattribute=_obj_dbattribute, _name_attribute=attribute_name)}
+        try:
+            return {'status_code': 200, 'data': db_class.DbClass.loads(mysql_value, _obj_dbattribute=_obj_dbattribute, _name_attribute=attribute_name)}
+        except db_types.LoadError as e:
+            return {'status_code': 306, 'data': mysql_value, 'info': e.info}
     return {'status_code': 300}
 
 def sql_decorator(func_d=None, /, standart_return=None):

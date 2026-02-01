@@ -12,6 +12,7 @@ status_cod = {100: {"eng": "There is no connection to the database", "ru": "Не
               303: {"eng": "The object is already in the table", "ru": "Объект уже находится в таблице"},
               304: {"eng": "Object not found", "ru": "Объект не найден"},
               305: {"eng": "The object argument has neither a default value nor a value in the database.", "ru": "Аргумент объекта не имеет ни значения по умолчанию, ни значения в database."},
+              306: {"eng": "Cheaker don't support this class (when loaded from db)"},
               400: {"eng": "Erroneous use of the function", "ru": "Ошибка использования функции"},
               402: {"eng": "Unexpected function error", "ru": "Непредвиденная ошибка функции"},
               403: {"eng": "Not supported by this version of the program", "ru": "Не поддерживается данной версией программы"}}

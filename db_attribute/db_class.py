@@ -5,6 +5,8 @@ import json
 import orjson
 import collections
 
+import db_attribute.db_types as db_types
+
 def MethodDecorator(func=None, /, convert_arguments=True, call_the_decoreted_func=False, call_update_obj=True):
     """
     decorator for methods, where updated obj | args can convert
@@ -373,13 +375,14 @@ class DbClass:
         if isinstance(tempdata, str):
             tempdata = orjson.loads(tempdata)
         if (not isinstance(tempdata, dict)) or 't' not in tempdata:
-            raise Exception(
+            raise db_types.LoadError(
                 f"load error: {tempdata} is not dict or don't have the 't' key"
             )
         loadcls = DbClassManager.db_class_name_to_db_class.get(tempdata['t'], None)
         if loadcls is None:
-            raise Exception(
-                f"load error: cheaker don't support the {tempdata['t']}, add this class to cheaker"
+            raise db_types.LoadError(
+                f"load error: cheaker don't support the {tempdata['t']}, add this class to cheaker",
+                info=tempdata['t']
             )
         if hasattr(loadcls, '_loads'):
             return loadcls._loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)

@@ -199,7 +199,7 @@ class DbAttribute:
         if now > self.__max_repr_recursion_limit__ or (self.id, self.__repr_class_name__) in Objs:
             return f'{self.__repr_class_name__}(id={self.id}, ...)'
         Objs.add((self.id, self.__repr_class_name__))
-        return f'''{self.__repr_class_name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{repr(getattr(self, i))}'}" for i in self.__db_fields__])})'''
+        return f'''{self.__repr_class_name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{repr(getattr(self, i))}'}" for i in self.__db_fields__ if self.__db_fields__[i].repr])})'''
 
     def _db_attribute_container_update(self, key, data=None):
         """
@@ -237,15 +237,38 @@ class DbAttribute:
             if not Ids:
                 return None
             id = Ids.list_ids[0]
-        if isinstance(id, db_types.Ids) and len(id) == 1:
+        if isinstance(id, db_types.Ids) and len(id) > 1:
             id = id[0]
         if isinstance(id, db_types.Id):
             id = id.Id
-        if isinstance(id, int) or isinstance(id, db_types.Id):
+        if isinstance(id, int):
             obj = cls.__new__(cls)
             obj.id = id
             return obj
         return None
+
+    @classmethod
+    def gets(cls, ids):
+        """
+        return List of objects
+        :type ids: List[int | db_types.Id] | discriptor.Condition | db_types.Ids
+        :return: List[obj]
+        """
+        if isinstance(ids, discriptor.Condition):
+            ids = ids.found()
+        if isinstance(ids, db_types.Ids):
+            ids = list(ids)
+        if not (isinstance(ids, list)) or isinstance(ids, db_types.Ids):
+            return []
+        res = []
+        for id in ids:
+            if isinstance(id, db_types.Id):
+                id = id.Id
+            if isinstance(id, int):
+                obj = cls.__new__(cls)
+                obj.id = id
+                res.append(obj)
+        return res
 
     @classmethod
     def get_all_ids(cls):

@@ -2,8 +2,7 @@ import collections, json
 from typing import Callable, Any
 
 import db_attribute
-
-db_class = db_attribute.db_class
+import db_attribute.db_class as db_class
 
 class _ReprMetaClass(type):
     def __repr__(cls):
@@ -14,6 +13,11 @@ class NotSet(metaclass=_ReprMetaClass):
 
 class MISSING(metaclass=_ReprMetaClass):
     pass
+
+class LoadError(Exception):
+    def __init__(self, *args, info=None):
+        super().__init__(*args)
+        self.info = info
 
 class Id:
     def __init__(self, Id: int, cls_name=None):
