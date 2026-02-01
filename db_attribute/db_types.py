@@ -26,8 +26,7 @@ class Ids:
     def __init__(self, Ids=None, cls_name=None):
         if Ids is None:
             Ids = []
-        self.set_ids = set(Ids)
-        self.list_ids = sorted(list(self.set_ids))
+        self.list_ids = sorted(set(Ids))
         self.cls_name = cls_name
         for i in range(len(self.list_ids)):
             if not isinstance(self.list_ids[i], Id):
@@ -41,6 +40,8 @@ class Ids:
         return iter(self.list_ids)
     def __repr__(self):
         return f'{self.cls_name if self.cls_name else "Ids"}({[i.Id for i in self.list_ids]})'
+    def __getitem__(self, item):
+        return self.list_ids[item]
 
 class JsonType:
     pass

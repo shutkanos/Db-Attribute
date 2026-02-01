@@ -7,7 +7,7 @@ import db_attribute.connector as connector
 import db_attribute.discriptor as discriptor
 
 __all__ = ['DbAttribute', 'DbAttributeMetaclass', 'db_work', 'db_class', 'discriptor', 'connector', 'db_types']
-__version__ = '2.1.1'
+__version__ = '2.1.2'
 
 class DbAttributeMetaclass(type):
     dict_classes = db_types.DictClasses()
@@ -237,6 +237,8 @@ class DbAttribute:
             if not Ids:
                 return None
             id = Ids.list_ids[0]
+        if isinstance(id, db_types.Ids) and len(id) == 1:
+            id = id[0]
         if isinstance(id, db_types.Id):
             id = id.Id
         if isinstance(id, int) or isinstance(id, db_types.Id):
@@ -252,6 +254,15 @@ class DbAttribute:
         if temp['status_code'] != 200:
             return db_types.Ids()
         return db_types.Ids(temp['data'])
+
+    def get_attribute(self, attribute_name, attribute_type=None):
+        cls = object.__getattribute__(self, '__class__')
+        db_field = object.__getattribute__(self, '__db_fields__').get(attribute_name, None)
+        if db_field is None:
+            return
+        if attribute_type is None:
+            attribute_type = db_field.python_type
+        return cls.__dict__[attribute_name].get(self, attribute_type=attribute_type)
 
     def dump(self, attributes:set[str]=None):
         """

@@ -111,12 +111,12 @@ class DbAttributeDiscriptor:
         self.cls = owner
         self.field = self.cls.__db_fields__[name]
 
-    def __get__(self, this, objtype=None):
+    def __get__(self, this, objtype=None, attribute_type=None):
         if this is None:
             return AttributeObj(self.cls, self.public_name)
         if self.private_name in object.__getattribute__(this, '__dict__'):
             return object.__getattribute__(this, self.private_name)
-        return self.get_attr_from_db(this)
+        return self.get_attr_from_db(this, attribute_type=attribute_type)
 
     def __set__(self, this, value):
         if value is db_types.NotSet:
@@ -138,6 +138,9 @@ class DbAttributeDiscriptor:
         if self.field is db_types.NotSet or (self.field.default is db_types.MISSING and self.field.default_factory is db_types.MISSING): return db_types.NotSet
         return self.field.get_default()
 
+    def get(self, this, attribute_type=None):
+        return self.__get__(this=this, attribute_type=attribute_type)
+
     def dump_attr_to_db(self, this, value, cheak_exists_value=True, update_value=False):
         db_types.cheak_db_work_object(self.cls)
         db_field = self.cls.__db_fields__[self.public_name]
@@ -148,17 +151,17 @@ class DbAttributeDiscriptor:
         ID = object.__getattribute__(this, 'id')
         self.cls.__dbworkobj__.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=obj, attribute_type=attribute_type)
 
-    def get_attr_from_db(self, this):
+    def get_attr_from_db(self, this, attribute_type=None):
         db_types.cheak_db_work_object(self.cls)
         ID = object.__getattribute__(this, 'id')
-        temp_data = object.__getattribute__(self.cls, '__dbworkobj__').get_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, _obj_dbattribute=this)
+        temp_data = object.__getattribute__(self.cls, '__dbworkobj__').get_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, attribute_type=attribute_type, _obj_dbattribute=this)
         if temp_data['status_code'] == 302: #table is not create
             self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, _cls_dbattribute=self.cls)
             temp_data['status_code'] = 304
         if temp_data['status_code'] == 304: #attr is not found
             value = self.get_default_value()
             if value is db_types.NotSet:
-                raise Exception(connector.status_cod[305]['eng'])
+                raise Exception(f"The object argument ({self.cls.__name__}.{self.public_name}) has neither a default value nor a value in the database.")
             self.__set__(this, value) #set the new attr
             attribute_type = self.cls.__db_fields__[self.public_name].python_type
             value = db_class.DbClassConverter.convert_to_db(value, attribute_type=attribute_type, _obj_dbattribute=this, _name_attribute=self.public_name) #convert attr to DbClasses

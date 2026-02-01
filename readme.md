@@ -41,6 +41,7 @@ The library provides tools for declarative model definition, relationship manage
         * [Change attribute of obj](#change-attribute-of-obj)
         * [Dump mode](#dump-mode)
     * [Types](#types)
+        * [DbField](#dbfield)
         * [Db attribute](#db-attribute)
         * [Db classes](#db-classes)
         * [Custom Db Classes](#custom-db-classes) 
@@ -285,6 +286,27 @@ user.set_auto_dump_mode()
 ```
 
 ## Types
+
+### DbField
+
+Dbfield is used to configure fields, namely:
+
+* `default` (Any): the default value of this Field (default takes precedence over the default_factory)
+* `default_factory` (Any): the default factory of this Field
+* `python_type` (Any): python type of data, example: str, int (python_type takes precedence over the data type specified in the annotation)
+* `mysql_type` (str): mysql type of data, example: 'varchar(50)', 'bigint'
+* `repr` (bool): Include field in `__repr__()` output
+* `init` (bool): Include field in constructor (`__init__()`)
+* `search_default` (bool): When True, applies default value during searches if record is missing in this field's table (Use this parameter if you understand what it is responsible for.)
+
+For example:
+
+```python
+class User(DbAttribute, metaclass=DbAttributeMetaclass):
+    Meta = BaseMeta
+    name: str = DbField(default='NotSet', mysql_type='varchar(32)')
+    hash: str = DbField(default_factory=lambda: str(uuid.uuid4()), mysql_type='varchar(512)', repr=False, init=False, search_default=False)
+```
 
 ### Db attribute
 
