@@ -170,7 +170,7 @@ def screening(name, db_name="MySQL"):
 class Db_work:
     def __init__(self, connobj, sittings_for_mysql_types=None):
         """
-        :param connobj: obj of connector.Connection or connector.SQLiteConnection
+        :param connobj: obj of connector.MySQLConnection or connector.SQLiteConnection
         :param sittings_for_mysql_types: (at this moment not used)
         """
         self.connobj = connobj

@@ -50,6 +50,44 @@ class Ids:
 class JsonType:
     pass
 
+class DbWorkMarker:
+    """Marker class for deferred dbworkobj registration with group support."""
+    def __init__(self, group_id):
+        self.group_id = group_id
+
+    def __repr__(self):
+        return f'DbWorkMarker(group={self.group_id!r})'
+
+class DbWorkManager:
+    _groups = {}
+
+    @classmethod
+    def register_class(cls, group_id, klass):
+        if group_id not in cls._groups:
+            cls._groups[group_id] = set()
+        cls._groups[group_id].add(klass)
+
+    @classmethod
+    def connect(cls, group_id, dbworkobj):
+        """Connect a dbworkobj to all classes in the specified group.
+
+        :param group_id: Group identifier, for example: connect('main', dbworkobj)
+        :param dbworkobj: db_work.Db_work instance
+        """
+        if group_id not in cls._groups:
+            return
+        for klass in cls._groups[group_id]:
+            klass.register_dbworkobj(dbworkobj)
+
+    @classmethod
+    def connect_all(cls, mapping):
+        for gid, obj in mapping.items():
+            cls.connect(gid, obj)
+
+    @classmethod
+    def get_groups(cls):
+        return {gid: list(classes) for gid, classes in cls._groups.items()}
+
 class Factory:
     def __init__(self, fabric):
         self.fabric = fabric.fabric if isinstance(fabric, Factory) else fabric
@@ -86,7 +124,6 @@ class DbField:
         self.repr = repr
         self.init = init
         self.search_default = search_default
-
 
     def __repr__(self):
         return f'''DbField({", ".join([f"{i} = {self.__dict__[i]}" for i in self.__dict__ if self.__dict__[i] is not MISSING])})'''
@@ -188,18 +225,4 @@ def cheak_db_work_object(cls):
         raise Exception(f'For this operation, set the value of the __dbworkobj__ parameter of the {cls} class using the "register_dbworkobj" method')
 
 if __name__ == "__main__":
-    Field = DbField(default_factory=lambda:10)
-    print(Field.get_default())
-    """
-    class A:
-        b: DbAttributeType('B')
-    print(A.__annotations__, f'{dict_classes.data=} {dict_classes.needdata=}')
-    dict_classes.add(A)
-    print(A.__annotations__, f'{dict_classes.data=} {dict_classes.needdata=}')
-    class B:
-        a: DbAttributeType('A')
-    print(A.__annotations__, B.__annotations__, f'{dict_classes.data=} {dict_classes.needdata=}')
-    dict_classes.add(B)
-    print(A.__annotations__, B.__annotations__, f'{dict_classes.data=} {dict_classes.needdata=}')
-    """
-
+    pass

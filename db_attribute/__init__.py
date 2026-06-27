@@ -28,7 +28,8 @@ class DbAttributeMetaclass(type):
             '__dbworkobj__': db_types.NotSet,
             '__max_repr_recursion_limit__': 10,
             '__repr_class_name__': db_types.NotSet,
-            '__skip_dbworkobj__': False
+            '__skip_dbworkobj__': False,
+            '__table_name__': db_types.NotSet
         }
 
         __annotations__ = {}
@@ -69,6 +70,14 @@ class DbAttributeMetaclass(type):
         for i in options:
             if options[i] is not db_types.NotSet:
                 setattr(new_cls, i, options[i])
+
+        if getattr(new_cls, '__table_name__', db_types.NotSet) is db_types.NotSet:
+            new_cls.__table_name__ = name
+
+        dbworkobj_value = getattr(new_cls, '__dbworkobj__', None)
+        if isinstance(dbworkobj_value, db_types.DbWorkMarker):
+            db_types.DbWorkManager.register_class(dbworkobj_value.group_id, new_cls)
+            new_cls.__skip_dbworkobj__ = True
 
         if '__repr_class_name__' not in kwargs:
             own_meta = namespace.get('Meta', None)
@@ -154,14 +163,14 @@ class DbAttributeMetaclass(type):
             "    used_keys = now_locals\n"
             "    for i in ['self', 'id', '_dont_add_id']:\n"
             "        used_keys.pop(i)\n"
-            "    if not self.__dbworkobj__.cheak_exists_id_table(self.__class__.__name__):\n"
-            "        self.__dbworkobj__.create_id_table(self.__class__.__name__)\n"
+            "    if not self.__dbworkobj__.cheak_exists_id_table(self.__class__.__table_name__):\n"
+            "        self.__dbworkobj__.create_id_table(self.__class__.__table_name__)\n"
             "    if isinstance(id, db_types.Id):\n"
             "        id = id.Id\n"
             "    if id is db_types.NotSet:\n"
-            "        id = self.__dbworkobj__.get_new_id(self.__class__.__name__)['data']\n"
+            "        id = self.__dbworkobj__.get_new_id(self.__class__.__table_name__)['data']\n"
             "    elif not (_dont_add_id and len([i for i in used_keys if used_keys[i] is not db_types.NotSet]) == 0):\n"
-            "        self.__dbworkobj__.add_id(self.__class__.__name__, id)\n"
+            "        self.__dbworkobj__.add_id(self.__class__.__table_name__, id)\n"
             "    setattr(self, 'id', id)\n"
             "    for name in __db_fields__:\n"
             "        value = used_keys[name]\n"
@@ -199,6 +208,7 @@ class DbAttribute:
     __max_repr_recursion_limit__: ClassVar[int] = 10
     __repr_class_name__: ClassVar[str] = db_types.NotSet
     __skip_dbworkobj__: ClassVar[bool] = False
+    __table_name__: ClassVar[str] = db_types.NotSet
 
     def __init__(self, *args, ID=None, **kwargs):
         raise 'Need set metaclass=DbAttributeMetaclass'
@@ -226,7 +236,7 @@ class DbAttribute:
     @classmethod
     def _db_attribute_found_ids_by_attribute(cls, attribute_name:str, attribute_value):
         db_types.cheak_db_work_object(cls)
-        tempdata = cls.__dbworkobj__.found_ids_by_value(class_name=cls.__name__, attribute_name=attribute_name, data=attribute_value, _cls_dbattribute=cls)
+        tempdata = cls.__dbworkobj__.found_ids_by_value(class_name=cls.__table_name__, attribute_name=attribute_name, data=attribute_value, _cls_dbattribute=cls)
         if tempdata['status_code'] != 200:
             return set()
         return tempdata['data']
@@ -282,7 +292,7 @@ class DbAttribute:
     @classmethod
     def get_all_ids(cls):
         db_types.cheak_db_work_object(cls)
-        temp = cls.__dbworkobj__.get_all_ids(cls.__name__)
+        temp = cls.__dbworkobj__.get_all_ids(cls.__table_name__)
         if temp['status_code'] != 200:
             return db_types.Ids()
         return db_types.Ids(temp['data'])
@@ -350,7 +360,7 @@ class DbAttribute:
         attributes = all_attributes if attributes is None else attributes & all_attributes
         IDs = {IDs} if isinstance(IDs, int) else IDs
         dbworkobj = cls.__dbworkobj__
-        clsname = cls.__name__
+        clsname = cls.__table_name__
         for ID in IDs:
             for db_attr in attributes:
                 dbworkobj.del_attribute_value(class_name=clsname, attribute_name=db_attr, ID=ID)
@@ -378,5 +388,5 @@ class DbAttribute:
     def register_dbworkobj(cls, dbworkobj):
         cls.__dbworkobj__ = dbworkobj
         cls.__skip_dbworkobj__ = False
-        if not cls.__dbworkobj__.cheak_exists_id_table(cls.__name__):
-            cls.__dbworkobj__.create_id_table(cls.__name__)
+        if not cls.__dbworkobj__.cheak_exists_id_table(cls.__table_name__):
+            cls.__dbworkobj__.create_id_table(cls.__table_name__)

@@ -37,6 +37,7 @@ The library provides tools for declarative model definition, relationship manage
         * [SQLite](#sqlite)
     * [Create class](#create-class)
         * [Options](#options)
+        * [Register db work object](#register-db-work-object)
         * [Class inheritance](#class-inheritance)
     * [Work with obj](#work-with-obj)
         * [Create new object](#create-new-object)
@@ -167,6 +168,48 @@ All options:
 * `__dbworkobj__` - database work object (required parameter),
 * `__max_repr_recursion_limit__` - maximum recursion limit for `__repr__` of DbAttribute
 * `__repr_class_name__` - sets the name of this class when using the method `__repr__` of DbAttribute
+* `__table_name__` - sets custom table name instead of the class name. By default, it is inherited (like any other class attribute), so child classes automatically share the same tables as the parent.
+
+### Register db work object
+
+If `dbworkobj` is not available at the time of class definition, you can defer registration using one of two approaches.
+
+#### Using `__skip_dbworkobj__ = True`
+
+Set `__skip_dbworkobj__ = True` in `Meta`, then call `register_dbworkobj()` on each class individually:
+
+```python
+class BaseMeta:
+    __skip_dbworkobj__ = True
+
+class User(DbAttribute, metaclass=DbAttributeMetaclass):
+    Meta = BaseMeta
+
+class Book(DbAttribute, metaclass=DbAttributeMetaclass):
+    Meta = BaseMeta
+
+User.register_dbworkobj(dbworkobj)
+Book.register_dbworkobj(dbworkobj)
+```
+
+#### Using `DbWorkMarker` (recommended for multiple classes)
+
+Define a marker with a group name, place it in `Meta.__dbworkobj__`, then connect all classes at once via `DbWorkManager`:
+
+```python
+from db_attribute.db_types import DbWorkMarker, DbWorkManager
+
+class MainMeta:
+    __dbworkobj__ = DbWorkMarker('main')
+
+class User(DbAttribute, metaclass=DbAttributeMetaclass):
+    Meta = MainMeta
+
+class Book(DbAttribute, metaclass=DbAttributeMetaclass):
+    Meta = MainMeta
+
+DbWorkManager.connect('main', dbworkobj)
+```
 
 ### Class inheritance
 

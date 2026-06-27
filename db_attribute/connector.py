@@ -57,7 +57,6 @@ class MySQLDialect:
 
     def quote_string_literal(self, s: str) -> str:
         """Wrap a string value as an SQL string literal safe for WHERE clauses."""
-        # MySQL: use double-quoted strings (already the default from json.dumps)
         escaped = s.replace('\\', '\\\\').replace('"', '\\"')
         return f'"{escaped}"'
 
@@ -84,7 +83,6 @@ class MySQLDialect:
         :param json_expr: SQL expression that evaluates to JSON (e.g., column name or JSON literal)
         :return: SQL expression that extracts $.d if present, else the whole value
         """
-        # MySQL: CASE WHEN JSON_CONTAINS_PATH(expr, 'one', '$.d') THEN JSON_UNQUOTE(JSON_EXTRACT(expr, '$.d')) ELSE expr END
         return f"CASE WHEN JSON_CONTAINS_PATH({json_expr}, 'one', '$.d') THEN JSON_UNQUOTE(JSON_EXTRACT({json_expr}, '$.d')) ELSE {json_expr} END"
 
 
@@ -114,7 +112,6 @@ class SQLiteDialect:
         return f"INSERT INTO {quoted_table} DEFAULT VALUES"
 
     def json_col_type(self) -> str:
-        # SQLite has no native JSON column type; TEXT stores JSON strings fine
         return 'TEXT'
 
     def bool_col_type(self) -> str:
@@ -126,7 +123,6 @@ class SQLiteDialect:
 
     def quote_string_literal(self, s: str) -> str:
         """Wrap a string value as an SQL string literal safe for WHERE clauses."""
-        # SQLite: single-quoted strings; escape inner single quotes by doubling
         escaped = s.replace("'", "''")
         return f"'{escaped}'"
 
@@ -150,7 +146,6 @@ class SQLiteDialect:
         :param json_expr: SQL expression that evaluates to JSON (e.g., column name or JSON literal)
         :return: SQL expression that extracts $.d if present, else the whole value
         """
-        # SQLite: CASE WHEN json_type(expr, '$.d') IS NOT NULL THEN json_extract(expr, '$.d') ELSE expr END
         return f"CASE WHEN json_type({json_expr}, '$.d') IS NOT NULL THEN json_extract({json_expr}, '$.d') ELSE {json_expr} END"
 
 

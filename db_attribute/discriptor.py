@@ -51,7 +51,7 @@ class AttributeObj(ConditionCore):
         field = self.cls.__db_fields__[self.attr]
         default = field.get_default()
         python_type = field.python_type
-        table_name = db_work.get_table_name(self.cls.__name__, self.attr)
+        table_name = db_work.get_table_name(self.cls.__table_name__, self.attr)
         sql_name = None if self.cls.__skip_dbworkobj__ else self.cls.__dbworkobj__.connobj.sql_name
         dialect = None if self.cls.__skip_dbworkobj__ else self.cls.__dbworkobj__.connobj.dialect
         scr_table_name = db_work.screening(table_name, sql_name)
@@ -89,7 +89,7 @@ class Condition(ConditionCore):
     def found(self):
         db_types.cheak_db_work_object(self.cls)
         field_names = list(self.cls.__db_fields__.keys())
-        temp = self.cls.__dbworkobj__.found_ids_by_condition(class_name=self.cls.__name__, condition=self._get_condition_repr(), field_names=field_names)
+        temp = self.cls.__dbworkobj__.found_ids_by_condition(class_name=self.cls.__table_name__, condition=self._get_condition_repr(), field_names=field_names)
         if temp['status_code'] != 200:
             return db_types.Ids()
         return db_types.Ids(temp['data'])
@@ -159,18 +159,18 @@ class DbAttributeDiscriptor:
         db_field = self.cls.__db_fields__[self.public_name]
         attribute_type = db_field.python_type
         obj = db_class.DbClassConverter.convert_to_db(value, attribute_type=attribute_type, _obj_dbattribute=this)
-        if db_work.get_table_name(self.cls.__name__, self.public_name) not in self.cls.__dbworkobj__.tables:
-            self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, db_field=db_field)
+        if db_work.get_table_name(self.cls.__table_name__, self.public_name) not in self.cls.__dbworkobj__.tables:
+            self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__table_name__, attribute_name=self.public_name, db_field=db_field)
         ID = object.__getattribute__(this, 'id')
-        self.cls.__dbworkobj__.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=obj, attribute_type=attribute_type)
+        self.cls.__dbworkobj__.add_attribute_value(class_name=self.cls.__table_name__, attribute_name=self.public_name, ID=ID, data=obj, attribute_type=attribute_type)
 
     def get_attr_from_db(self, this, attribute_type=None):
         db_types.cheak_db_work_object(self.cls)
         ID = object.__getattribute__(this, 'id')
-        temp_data = object.__getattribute__(self.cls, '__dbworkobj__').get_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, attribute_type=attribute_type, _obj_dbattribute=this)
+        temp_data = object.__getattribute__(self.cls, '__dbworkobj__').get_attribute_value(class_name=self.cls.__table_name__, attribute_name=self.public_name, ID=ID, attribute_type=attribute_type, _obj_dbattribute=this)
         status_code = temp_data['status_code']
         if status_code == 302: #table is not create
-            self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__name__, attribute_name=self.public_name, _cls_dbattribute=self.cls)
+            self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__table_name__, attribute_name=self.public_name, _cls_dbattribute=self.cls)
             temp_data['status_code'] = 304
         if status_code == 304 or status_code == 306: #attr is not found  or  cheaker can't load this class
             value = self.get_default_value()
@@ -197,9 +197,9 @@ class DbAttributeDiscriptor:
     def del_attr_from_db(self, this):
         ID = object.__getattribute__(this, 'id')
         db_types.cheak_db_work_object(self.cls)
-        return self.cls.__dbworkobj__.del_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID)
+        return self.cls.__dbworkobj__.del_attribute_value(class_name=self.cls.__table_name__, attribute_name=self.public_name, ID=ID)
 
     def container_update(self, this, data=None):
         ID = object.__getattribute__(this, 'id')
         db_types.cheak_db_work_object(self.cls)
-        self.cls.__dbworkobj__.add_attribute_value(class_name=self.cls.__name__, attribute_name=self.public_name, ID=ID, data=data, _cls_dbattribute=self.cls)
+        self.cls.__dbworkobj__.add_attribute_value(class_name=self.cls.__table_name__, attribute_name=self.public_name, ID=ID, data=data, _cls_dbattribute=self.cls)
