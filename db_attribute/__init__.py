@@ -66,11 +66,15 @@ class DbAttributeMetaclass(type):
         if not params_for_metaclass['need_DbAttributeMetaclass']:
             return new_cls
 
-        new_cls.__repr_class_name__ = name
-
         for i in options:
             if options[i] is not db_types.NotSet:
                 setattr(new_cls, i, options[i])
+
+        if '__repr_class_name__' not in kwargs:
+            own_meta = namespace.get('Meta', None)
+            own_meta_has_repr = own_meta is not None and '__repr_class_name__' in getattr(own_meta, '__dict__', {})
+            if not own_meta_has_repr:
+                new_cls.__repr_class_name__ = name
 
         if (getattr(new_cls, '__dbworkobj__', None) is None) and (not getattr(new_cls, '__skip_dbworkobj__', False)):
             raise Exception(f'The "{new_cls.__name__}" class dosn\'t have "__dbworkobj__" parameter: set "__dbworkobj__" or "Meta", see documentation')
@@ -89,6 +93,11 @@ class DbAttributeMetaclass(type):
 
             if get_origin(attr_type) is ClassVar:
                 continue
+
+            if isinstance(attr_value, discriptor.DbAttributeDiscriptor):
+                if attr_name in __db_fields__:
+                    continue
+                attr_value = db_types.MISSING
 
             if isinstance(attr_value, db_types.DbField):
                 db_field = attr_value

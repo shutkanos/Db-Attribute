@@ -32,8 +32,12 @@ The library provides tools for declarative model definition, relationship manage
 * [Supported types](#supported-types)
 * [Install](#install)
 * [How to use it](#how-to-use-it)
+    * [Connect to DB](#connect-to-db)
+        * [MySQL](#mysql)
+        * [SQLite](#sqlite)
     * [Create class](#create-class)
         * [Options](#options)
+        * [Class inheritance](#class-inheritance)
     * [Work with obj](#work-with-obj)
         * [Create new object](#create-new-object)
         * [Finding objects](#finding-objects)
@@ -73,6 +77,37 @@ pip install git+https://github.com/shutkanos/Db-Attribute.git
 
 # How to use it
 
+## Connect to DB
+
+### MySQL
+Connect to MySQL database by providing host, credentials, and database name:
+
+```python
+from db_attribute import db_work, connector
+
+connect_obj = connector.MySQLConnection(host='localhost', user='root', password='password', database='mydb')
+db_work_obj = db_work.Db_work(connect_obj)
+```
+
+### SQLite
+Connect to SQLite database (local file or in-memory):
+
+```python
+from db_attribute import db_work, connector
+
+# File-based database
+connect_obj = connector.SQLiteConnection('/path/to/database.db')
+db_work_obj = db_work.Db_work(connect_obj)
+
+# In-memory database
+connect_obj = connector.SQLiteConnection(':memory:')
+db_work_obj = db_work.Db_work(connect_obj)
+
+# With specific options
+connect_obj = connector.SQLiteConnection('/path/to/database.db', timeout=10)
+db_work_obj = db_work.Db_work(connect_obj)
+```
+
 ## Create class
 
 To create any class (Table):
@@ -86,16 +121,17 @@ To create any class (Table):
 from db_attribute import DbAttribute, DbAttributeMetaclass, db_work, connector
 from db_attribute.db_types import DbField
 
-connect_obj = connector.Connection(host=*mysqlhost*, user=*user*, password=*password*, database=*databasename*)
+connect_obj = connector.MySQLConnection(host='localhost', user='root', password='password', database='mydb')
 db_work_obj = db_work.Db_work(connect_obj)
 
+
 class User(DbAttribute, metaclass=DbAttributeMetaclass, __dbworkobj__=db_work_obj):
-    name: str = DbField(default='NotSet') # Ok
-    age: int = -1 # Ok
-    ban = DbField(default=False) # Ok
-    other_int_information = 100 # Need annotation or DbField - not error, but not saved
-    list_of_books = DbField(default_factory=lambda: ['name of first book']) # Ok
-    settings: dict = DbField(default_factory=dict) # Ok
+    name: str = DbField(default='NotSet')  # Ok
+    age: int = -1  # Ok
+    ban = DbField(default=False)  # Ok
+    other_int_information = 100  # Need annotation or DbField - not error, but not saved
+    list_of_books = DbField(default_factory=lambda: ['name of first book'])  # Ok
+    settings: dict = DbField(default_factory=dict)  # Ok
 ```
 
 Each instance has a unique `id` identifier. It is inherited from DbAttribute and stored in `__dict__`
@@ -132,6 +168,54 @@ All options:
 * `__max_repr_recursion_limit__` - maximum recursion limit for `__repr__` of DbAttribute
 * `__repr_class_name__` - sets the name of this class when using the method `__repr__` of DbAttribute
 
+### Class inheritance
+
+A developer can create a child class from an existing DbAttribute class. The child class stores **all its fields** (including inherited ones) in its own separate database tables, fully isolated from the parent's tables.
+
+```python
+from db_attribute.db_types import DbField
+
+class UserBase(DbAttribute, metaclass=DbAttributeMetaclass):
+    Meta = BaseMeta
+    nameuser: str = DbField(default="")
+    rank: str = DbField(default="User")
+
+    def promote(self):
+        self.rank = 'Admin'
+
+class UserChild(UserBase):
+    some_data: int = DbField(default=0)
+
+user1 = UserChild(id=1, nameuser="Oleg", some_data=1)
+user2 = UserChild(id=2, nameuser="Bob", some_data=2)
+print(user1) # UserChild(id=1, nameuser='Oleg', rank='User', some_data=1)
+print(user2) # UserChild(id=2, nameuser='Bob', rank='User', some_data=2)
+user2.promote()
+print(user2) # UserChild(id=2, nameuser='Bob', rank='Admin', some_data=2)
+```
+
+Key points:
+
+* The child class inherits all fields and methods from the parent
+* No need to repeat `metaclass=DbAttributeMetaclass` — it is inherited automatically
+* The child uses the same `dbworkobj` as the parent by default; a different one can be set via `Meta`
+* `UserBase` and `UserChild` are completely independent in the database: `UserBase(id=1)` and `UserChild(id=1)` are different records stored in different tables
+* Methods defined in the parent work correctly on child instances and write to the child's own tables:
+
+```python
+user1.promote()
+print(user1.rank) # 'Admin' — written to table 'cls userchild atr rank', not 'cls userbase atr rank'
+```
+
+To use a different `dbworkobj` for the child class, set it via `Meta`:
+
+```python
+class UserPremium(UserBase):
+    class Meta:
+        __dbworkobj__ = other_dbworkobj
+    premium_level: int = DbField(default=1)
+```
+
 ## Work with obj
 
 ### Create new object
@@ -140,6 +224,9 @@ To create an object, use an id (optional) and other fields (optional),
 
 ```python
 obj = User(id=3) # other field set to defaults value
+print(obj) # User(id=3, name=*default value*)
+# or:
+obj = User.get(id=3)
 print(obj) # User(id=3, name=*default value*)
 ```
 ```python
@@ -157,19 +244,19 @@ If a developer needs to recreate an object, he can call DbAttribute cls with id.
 
 ```python
 obj = User(name='Ben', age=20, id=3) #insert obj to db
-print(obj) #User(id=3, name='Ben', age=20)
+print(obj) # User(id=3, name='Ben', age=20)
 
 obj = User(id=3)
-print(obj) #User(id=3, name='Ben', age=20)
+print(obj) # User(id=3, name='Ben', age=20)
 
 obj = User('Anna', id=3)
-print(obj) #User(id=3, name='Anna', age=20)
+print(obj) # User(id=3, name='Anna', age=20)
 
 obj = User(age=25, id=3)
-print(obj) #User(id=3, name='Anna', age=25)
+print(obj) # User(id=3, name='Anna', age=25)
 
 obj = User(id=3)
-print(obj) #User(id=3, name='Anna', age=25)
+print(obj) # User(id=3, name='Anna', age=25)
 ```
 
 ### Finding objects
@@ -187,21 +274,21 @@ obj = User(name='Bob', age=20, id=1)
 obj = User(name='Bob', age=30, id=2)
 obj = User(name='Anna', age=20, id=3)
 #finds objs
-print(User.get(id=2))                                   #User(id=2, name='Bob', age=30)
-print(User.get((User.age == 30) & (User.name == 'Bob')))#User(id=2, name='Bob', age=30)
-print(User.get(User.name == 'Anna'))                    #User(id=3, name='Anna', age=20)
-print(User.get(User.name == 'Bob'))                     #User(id=1, name='Bob', age=20)
-print(User.get(User.name == 'Other name'))              #None
+print(User.get(id=2))                                   # User(id=2, name='Bob', age=30)
+print(User.get((User.age == 30) & (User.name == 'Bob')))# User(id=2, name='Bob', age=30)
+print(User.get(User.name == 'Anna'))                    # User(id=3, name='Anna', age=20)
+print(User.get(User.name == 'Bob'))                     # User(id=1, name='Bob', age=20)
+print(User.get(User.name == 'Other name'))              # None
 #finds all objs
-print(User.gets(User.name == 'Bob'))                    #[User(id=1, name='Bob', age=20), User(id=2, name='Bob', age=30)]
-print(User.gets([2, 3]))                                #[User(id=2, name='Bob', age=30), User(id=3, name='Anna', age=20)]
+print(User.gets(User.name == 'Bob'))                    # [User(id=1, name='Bob', age=20), User(id=2, name='Bob', age=30)]
+print(User.gets([2, 3]))                                # [User(id=2, name='Bob', age=30), User(id=3, name='Anna', age=20)]
 ```
 
 To check the correctness of writing a logical expression, you can:
 
 ```python
-print(User.name == 'Anna')                     #(User.name = 'Anna')
-print((User.age == 30) & (User.name == 'Bob')) #((User.age = 30) and (User.name = 'Bob'))
+print(User.name == 'Anna')                     # (User.name = 'Anna')
+print((User.age == 30) & (User.name == 'Bob')) # ((User.age = 30) and (User.name = 'Bob'))
 ```
 
 Use '&' and '|' instead of the 'and' and 'or' operators. The 'and' and 'or' operators are not supported
@@ -212,16 +299,16 @@ If a developer needs to iterate through all the elements of a class, they can us
 
 ```python
 print(list(User))
-#[User(id=1, name='Bob', age=30), User(id=2, name='Bob', age=20), User(id=3, name='Anna', age=20)]
+# [User(id=1, name='Bob', age=30), User(id=2, name='Bob', age=20), User(id=3, name='Anna', age=20)]
 
 print([i for i in User if i.age < 30])
-#[User(id=2, name='Bob', age=20), User(id=3, name='Anna', age=20)]
+# [User(id=2, name='Bob', age=20), User(id=3, name='Anna', age=20)]
 
 for i in User:
     print(i)
-#User(id=1, name='Bob', age=30)
-#User(id=2, name='Bob', age=20)
-#User(id=3, name='Anna', age=20)
+# User(id=1, name='Bob', age=30)
+# User(id=2, name='Bob', age=20)
+# User(id=3, name='Anna', age=20)
 ```
 ⚠️ Iterations loads all objects - not recommended for large tables
 
@@ -230,12 +317,12 @@ for i in User:
 ```python
 obj = User(name='Bob', list_of_books=[], id=1)
 
-print(obj) #User(id=1, name='Bob', list_of_books=[])
+print(obj) # User(id=1, name='Bob', list_of_books=[])
 
 obj.name = 'Anna'
 obj.list_of_books.append('Any name of book')
 
-print(obj) #User(id=1, name='Anna', list_of_books=['Any name of book'])
+print(obj) # User(id=1, name='Anna', list_of_books=['Any name of book'])
 ```
 
 ### Dump mode
@@ -330,20 +417,20 @@ To create an object:
 ```python
 obj_a = Class_A(id=15, name='Anna', obj_b=1)
 obj_b = Class_B(id=1, name='Bob', obj_a=15)
-print(obj_b) #Class_B(id=1, name='Bob', obj_a=Class_A(id=15, name='Anna', obj_b=Class_B(id=1, ...)))
+print(obj_b) # Class_B(id=1, name='Bob', obj_a=Class_A(id=15, name='Anna', obj_b=Class_B(id=1, ...)))
 #or
 obj_a = Class_A(id=15, name='Anna', obj_b=obj_b)
-print(obj_a) #Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Class_A(id=15, ...)))
+print(obj_a) # Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Class_A(id=15, ...)))
 ```
 For found obj:
 ```python
 Class_A(id=15, name='Anna', obj_b=1)
 obj = Class_B(id=1, name='Bob', obj_a=15)
 obj = Class_A.get(Class_A.obj_b == obj)
-print(obj) #Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Class_A(id=15, ...)))
-#And Found with use id of obj:
+print(obj) # Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Class_A(id=15, ...)))
+# And Found with use id of obj:
 obj = Class_A.get(Class_A.obj_b == 1)
-print(obj) #Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Class_A(id=15, ...)))
+print(obj) # Class_A(id=15, name='Anna', obj_b=Class_B(id=1, name='Bob', obj_a=Class_A(id=15, ...)))
 ```
 One-to-Many relationship:
 ```python
@@ -363,29 +450,29 @@ author = Author(name="George Orwell")
 book = Book(title="1984", author=author)
 author.books.append(book)
 
-print(author) #Author(id=1, name='George Orwell', books=[Book(id=1, title='1984', author=Author(id=1, ...))])
-print(book) #Book(id=1, title='1984', author=Author(id=1, name='George Orwell', books=[Book(id=1, ...)]))
+print(author) # Author(id=1, name='George Orwell', books=[Book(id=1, title='1984', author=Author(id=1, ...))])
+print(book)   # Book(id=1, title='1984', author=Author(id=1, name='George Orwell', books=[Book(id=1, ...)]))
 ```
 
 ### Db classes
 When collections are stored in memory, they converted to Db classes
 ```python
 obj = User(1, list_of_books=[1, 2, 3])
-print(type(obj.list_of_books)) #DbList
+print(type(obj.list_of_books)) # DbList
 ```
 ```python
 obj = User(1, times=[datetime(2024, 1, 1)])
-print(type(obj.times[0])) #DbDatetime
+print(type(obj.times[0])) # DbDatetime
 ```
 And when collections dumped to db, they converted to json
 ```python
 obj = User(1, list_of_books=[1, 2, 3])
-print(obj.list_of_books.dumps()) #{"t": "DbList", "d": [1, 2, 3]}
+print(obj.list_of_books.dumps()) # {"t": "DbList", "d": [1, 2, 3]}
 ```
 ```python
 obj = User(1, times=[datetime(2024, 1, 1), datetime(2027, 7, 7)])
 print(obj.list_of_books.dumps())
-#{"t": "DbList", "d": [{"t": "DbDatetime", "d": "2024-01-01T00:00:00"}, {"t": "DbDatetime", "d": "2027-07-07T00:00:00"}]}
+# {"t": "DbList", "d": [{"t": "DbDatetime", "d": "2024-01-01T00:00:00"}, {"t": "DbDatetime", "d": "2027-07-07T00:00:00"}]}
 ```
 
 ### Custom Db Classes
@@ -477,6 +564,7 @@ obj.settings = {1: 3} # changed
 print(obj.settings) #{'1': 3}
 ```
 
+
 # Speed Test
 
 The execution speed may vary from computer to computer, so you need to focus on the specified number of operations per second of a regular mysql
@@ -513,4 +601,3 @@ JsonType  | 7297 op/sec       | -14%
 # Data base
 
 This module uses MySQL db (<a href="https://github.com/mysql/mysql-connector-python/blob/trunk/LICENSE.txt">License</a>), and for use it, you need install <a href='https://www.mysql.com'>mysql</a>
-

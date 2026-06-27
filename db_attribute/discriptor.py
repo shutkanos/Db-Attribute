@@ -53,15 +53,25 @@ class AttributeObj(ConditionCore):
         python_type = field.python_type
         table_name = db_work.get_table_name(self.cls.__name__, self.attr)
         sql_name = None if self.cls.__skip_dbworkobj__ else self.cls.__dbworkobj__.connobj.sql_name
+        dialect = None if self.cls.__skip_dbworkobj__ else self.cls.__dbworkobj__.connobj.dialect
         scr_table_name = db_work.screening(table_name, sql_name)
         scr_data = db_work.screening('data', sql_name)
+
         if (not field.search_default) or default is db_types.NotSet or default is db_types.MISSING:
-            return f'{scr_table_name}.{scr_data}'
-        temp = db_work.convert_attribute_value_to_mysql_value(default, python_type)
-        if temp['status_code'] != 200:
-            raise Exception(connector.status_cod[temp['status_code']])
-        sql_default = temp["data"]
-        return f'COALESCE({scr_table_name}.{scr_data}, {sql_default})'
+            col_expr = f'{scr_table_name}.{scr_data}'
+        else:
+            temp = db_work.convert_attribute_value_to_sql_value(default, python_type)
+            if temp['status_code'] != 200:
+                raise Exception(connector.status_cod[temp['status_code']])
+            sql_default = temp["data"]
+            col_expr = f'COALESCE({scr_table_name}.{scr_data}, {sql_default})'
+
+        if db_class.DbClassCheaker.this_db_attribute_support_class(python_type, this_is_cls=True) or db_class.DbClassCheaker.this_support_class(python_type, this_is_cls=True):
+            if not (hasattr(python_type, '__mro__') and any(base.__name__ == 'DbAttribute' for base in python_type.__mro__)):
+                if dialect is not None and hasattr(dialect, 'json_extract_d_or_whole'):
+                    col_expr = dialect.json_extract_d_or_whole(col_expr)
+
+        return col_expr
 
     def __repr__(self):
         return f'{self.cls.__name__}.{self.attr}'
@@ -78,7 +88,8 @@ class Condition(ConditionCore):
 
     def found(self):
         db_types.cheak_db_work_object(self.cls)
-        temp = self.cls.__dbworkobj__.found_ids_by_condition(class_name=self.cls.__name__, condition=self._get_condition_repr())
+        field_names = list(self.cls.__db_fields__.keys())
+        temp = self.cls.__dbworkobj__.found_ids_by_condition(class_name=self.cls.__name__, condition=self._get_condition_repr(), field_names=field_names)
         if temp['status_code'] != 200:
             return db_types.Ids()
         return db_types.Ids(temp['data'])
@@ -89,9 +100,10 @@ class Condition(ConditionCore):
         return self.lambda_operator(left, right)
 
     def _get_condition_repr(self):
-        temp = db_work.convert_attribute_value_to_mysql_value(self.left, type(self.left))
+        dialect = None if self.cls.__skip_dbworkobj__ else getattr(self.cls.__dbworkobj__.connobj, 'dialect', None)
+        temp = db_work.convert_attribute_value_to_sql_value(self.left, type(self.left), dialect=dialect)
         left = temp['data']
-        temp = db_work.convert_attribute_value_to_mysql_value(self.right, type(self.right))
+        temp = db_work.convert_attribute_value_to_sql_value(self.right, type(self.right), dialect=dialect)
         right = temp['data']
         return f'({left} {self.operator} {right})'
 

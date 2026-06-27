@@ -1,4 +1,5 @@
 import copy, ast, functools, inspect, sys
+import copyreg
 import datetime
 import pickle
 import json
@@ -6,6 +7,8 @@ import orjson
 import collections
 
 import db_attribute.db_types as db_types
+
+_COPYREG_NEWOBJ_FUNCS = frozenset(filter(None, [getattr(copyreg, '__newobj__', None), getattr(copyreg, '__newobj_ex__', None)]))
 
 def MethodDecorator(func=None, /, convert_arguments=True, call_the_decoreted_func=False, call_update_obj=True):
     """
@@ -19,7 +22,7 @@ def MethodDecorator(func=None, /, convert_arguments=True, call_the_decoreted_fun
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if convert_arguments:
-                args = (DbClassConverter.convert_to_db(i, _first_container=self._first_container if self._first_container else _FirstContainer(self)) for i in args)
+                args = tuple(DbClassConverter.convert_to_db(i, _first_container=self._first_container if self._first_container else _FirstContainer(self)) for i in args)
                 kwargs = {key: DbClassConverter.convert_to_db(kwargs[key], _first_container=self._first_container if self._first_container else _FirstContainer(self)) for key in kwargs}
 
             if call_the_decoreted_func:
@@ -75,7 +78,7 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
                 convert_arguments = True
             def wrapper(self, *args, _update=True, **kwargs):
                 if convert_arguments:
-                    args = (DbClassConverter.convert_to_db(i, _first_container=self._first_container) for i in args)
+                    args = tuple(DbClassConverter.convert_to_db(i, _first_container=self._first_container) for i in args)
                     kwargs = {key: DbClassConverter.convert_to_db(kwargs[key], _first_container=self._first_container) for key in kwargs}
                 obj = truefunc(self, *args, **kwargs)
                 if _update and isinstance(obj, DbClass):
@@ -89,7 +92,7 @@ def DbClassDecorator(cls=None, /, convert_arguments_ioperation_methodes=False, c
                 convert_arguments = True
             def wrapper(self, *args, _update=True, **kwargs):
                 if convert_arguments:
-                    args = (DbClassConverter.convert_to_db(i, _first_container=self._first_container) for i in args)
+                    args = tuple(DbClassConverter.convert_to_db(i, _first_container=self._first_container) for i in args)
                     kwargs = {key: DbClassConverter.convert_to_db(kwargs[key], _first_container=self._first_container) for key in kwargs}
                 data = truefunc(self, *args, **kwargs)
                 if _update: self._update_obj()
@@ -166,7 +169,8 @@ class DbClassManager:
         elif name_clasic_class:
             name_db_class = cls.class_name_to_db_class[name_clasic_class].__name__
         db_class = cls.db_class_name_to_db_class[name_db_class]
-        del cls.class_to_db_class[db_class]
+        classic_class = cls.db_class_name_to_clasic_class[name_db_class]
+        del cls.class_to_db_class[classic_class]
         del cls.db_class_name_to_db_class[name_db_class]
         del cls.class_name_to_db_class[name_clasic_class]
         del cls.db_class_name_to_clasic_class[name_db_class]
@@ -184,7 +188,11 @@ class DbClassConverter:
         if hasattr(obj, '__convert_from_db__'):
             return obj.__convert_from_db__()
         new_obj = object.__new__(obj._standart_class)
-        new_obj.__dict__ = {i: obj.__dict__[i] for i in obj.__dict__ if i not in {'_obj_dbattribute', '_name_attribute', '_first_container'}}
+        new_obj.__dict__ = {
+            k: cls.convert_from_db(v)
+            for k, v in obj.__dict__.items()
+            if k not in {'_obj_dbattribute', '_name_attribute', '_first_container'}
+        }
         return new_obj
 
     @classmethod
@@ -207,9 +215,9 @@ class DbClassConverter:
             if isinstance(rv, str):
                 raise Exception(f"uncopyable object of type {type(obj)}")
             rv = list(rv)
-            if rv[0].__name__ == '__newobj__':
+            if rv[0] in _COPYREG_NEWOBJ_FUNCS or getattr(rv[0], '__name__', '') == '__newobj__':
                 rv[0] = __newobj__
-            elif rv[0].__name__ == '__newobj_ex__':
+            elif getattr(rv[0], '__name__', '') == '__newobj_ex__':
                 rv[0] = __newobj_ex__
             else:
                 rv[0] = __newobj__
@@ -226,7 +234,7 @@ class DbClassConverter:
         if y.__dict__.get('_first_container', None) is None:
             y.__dict__['_first_container'] = _first_container
         if y._call_init_when_reconstruct:
-            y.__init__(*args[1:], _obj_dbattribute=None, _name_attribute=None, _first_container=None)
+            y.__init__(*args[1:], _obj_dbattribute=None, _name_attribute=None, _first_container=y._first_container)
         if state is not None:
             if hasattr(y, '__setstate__'):
                 y.__setstate__(state)
