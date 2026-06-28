@@ -1,6 +1,5 @@
 from setuptools import setup
 
-from codecs import open
 from os import path
 
 here = path.abspath(path.dirname(__file__))
@@ -27,17 +26,11 @@ setup(
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
     ],
 
     keywords=" ".join(["db", "database", "attribute", "db_attribute", "db attribute", "DbAttribute", "database attribute", "orm", "ORM", "attribute orm", "attribute ORM", "attr", "attr ORM", "attr orm", "db attr", "DbAttr"]),
     packages=['db_attribute'],
 
-    install_requires=required,
-
-    extras_require={
-        'dev': [],
-        'test': [],
-    },
+    install_requires=required
 )
