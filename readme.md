@@ -551,7 +551,7 @@ class DbUserDataClass(db_class.DbClass, UserDataClass):
     def __convert_to_db__(cls, obj: UserDataClass, **kwargs):
         """Methode for convert obj to dbclass - need @classmethod and kwargs"""
         # This is a mandatory method
-        # Call with _user_db=True
+        # Call with _user_db=True and **kwargs
         # Example:
         # print(type(DbUserDataClass(value=10)))                #UserDataClass
         # print(type(DbUserDataClass(value=10, _use_db=True)))  #DbUserDataClass

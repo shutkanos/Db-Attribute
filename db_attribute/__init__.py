@@ -7,7 +7,7 @@ import db_attribute.connector as connector
 import db_attribute.discriptor as discriptor
 
 __all__ = ['DbAttribute', 'DbAttributeMetaclass', 'db_work', 'db_class', 'discriptor', 'connector', 'db_types']
-__version__ = '2.1.2'
+__version__ = '2.1.3'
 
 class DbAttributeMetaclass(type):
     dict_classes = db_types.DictClasses()
@@ -141,8 +141,7 @@ class DbAttributeMetaclass(type):
         for field_name, field_value in __db_fields__.items():
             is_required = False
             if isinstance(field_value, db_types.DbField):
-                default = field_value.get_default()
-                if default is db_types.MISSING:
+                if field_value.default_is_missing():
                     is_required = True
             else:
                 if field_value is db_types.MISSING:

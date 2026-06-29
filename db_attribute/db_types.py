@@ -135,6 +135,9 @@ class DbField:
             return self.default_factory.get_value()
         return MISSING
 
+    def default_is_missing(self):
+        return self.default is MISSING and self.default_factory is MISSING
+
 class TableType:
     def __init__(self, name_cls):
         self.name_cls = name_cls
