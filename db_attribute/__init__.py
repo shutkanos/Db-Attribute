@@ -130,8 +130,13 @@ class DbAttributeMetaclass(type):
         __cls_dict__ = getattr(new_cls, '__dict__')
         setattr(new_cls, '__db_fields__', __db_fields__)
 
+        __db_descriptors__ = {}
         for attr_name in __cls_dict__['__db_fields__']:
-            setattr(new_cls, attr_name, discriptor.DbAttributeDiscriptor(new_cls, attr_name))
+            descriptor = discriptor.DbAttributeDiscriptor(new_cls, attr_name)
+            setattr(new_cls, attr_name, descriptor)
+            __db_descriptors__[attr_name] = descriptor
+
+        setattr(new_cls, '__db_descriptors__', __db_descriptors__)
 
         cls.dict_classes.replace(new_cls)
 
@@ -211,13 +216,24 @@ class DbAttribute:
 
     def __init__(self, *args, ID=None, **kwargs):
         raise 'Need set metaclass=DbAttributeMetaclass'
+
     def __repr__(self):
         return self.__get_repr__(set())
+
     def __get_repr__(self, Objs: set, now: int=0):
         if now > self.__max_repr_recursion_limit__ or (self.id, self.__repr_class_name__) in Objs:
             return f'{self.__repr_class_name__}(id={self.id}, ...)'
         Objs.add((self.id, self.__repr_class_name__))
-        return f'''{self.__repr_class_name__}(id={self.id}, {", ".join([f"{i}={obj.__get_repr__(Objs, now+1) if hasattr(obj:=getattr(self, i), '__get_repr__') else f'{repr(getattr(self, i))}'}" for i in self.__db_fields__ if self.__db_fields__[i].repr])})'''
+        parts = []
+        for field_name, db_field in self.__db_fields__.items():
+            if not db_field.repr:
+                continue
+            value = getattr(self, field_name)
+            if type(value).__name__ in ('DbAttribute', 'ContainerDbAttribute') or hasattr(type(value), '__get_repr__'):
+                parts.append(f"{field_name}={value.__get_repr__(Objs, now+1)}")
+            else:
+                parts.append(f"{field_name}={repr(value)}")
+        return f'{self.__repr_class_name__}(id={self.id}, {", ".join(parts)})'
 
     def _db_attribute_container_update(self, key, data=None):
         """
@@ -228,9 +244,13 @@ class DbAttribute:
         """
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
-        if ('_'+key in self_dict) or (key not in cls.__dict__['__db_fields__']):
+        db_fields = getattr(cls, '__db_fields__', {})
+        if ('_'+key in self_dict) or (key not in db_fields):
             return
-        cls.__dict__[key].container_update(self, data)
+        db_descriptors = getattr(cls, '__db_descriptors__', {})
+        field_descriptor = db_descriptors.get(key)
+        if field_descriptor is not None:
+            field_descriptor.container_update(self, data)
 
     @classmethod
     def _db_attribute_found_ids_by_attribute(cls, attribute_name:str, attribute_value):

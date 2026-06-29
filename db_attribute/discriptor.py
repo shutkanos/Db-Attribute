@@ -171,7 +171,7 @@ class DbAttributeDiscriptor:
         status_code = temp_data['status_code']
         if status_code == 302: #table is not create
             self.cls.__dbworkobj__.create_attribute_table(class_name=self.cls.__table_name__, attribute_name=self.public_name, _cls_dbattribute=self.cls)
-            temp_data['status_code'] = 304
+            status_code = 304
         if status_code == 304 or status_code == 306: #attr is not found  or  cheaker can't load this class
             value = self.get_default_value()
             if value is db_types.NotSet:

@@ -215,14 +215,14 @@ class _CursorWrapper:
 
 
 class DebugMySQLConnection(MySQLConnection):
-    def __init__(self, print_func=None, *args, **kwargs):
+    def __init__(self, *args, print_func=None, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.notconn:
             self.cur = _CursorWrapper(self.cur, print_func=print_func)
 
 
 class DebugSQLiteConnection(SQLiteConnection):
-    def __init__(self, print_func=None, *args, **kwargs):
+    def __init__(self, *args, print_func=None, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.notconn:
             self.cur = _CursorWrapper(self.cur, print_func=print_func)
