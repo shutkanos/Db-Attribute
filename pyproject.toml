@@ -21,6 +21,7 @@ classifiers = [
 
 dependencies = [
     "mysql-connector-python >= 8.4.0",
+    "psycopg2",
     "orjson"
 ]
 

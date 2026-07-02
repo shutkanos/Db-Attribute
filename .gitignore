@@ -8,5 +8,5 @@ tests
 build
 dist
 old_dist
-.venv
+**/.venv*
 db_attribute.egg-info

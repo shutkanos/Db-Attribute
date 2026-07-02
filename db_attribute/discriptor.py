@@ -88,8 +88,26 @@ class Condition(ConditionCore):
 
     def found(self):
         db_types.cheak_db_work_object(self.cls)
-        field_names = list(self.cls.__db_fields__.keys())
-        temp = self.cls.__dbworkobj__.found_ids_by_condition(class_name=self.cls.__table_name__, condition=self._get_condition_repr(), field_names=field_names)
+        fast_ids = _try_fast_ids(self)
+        if fast_ids is not None:
+            return db_types.Ids(fast_ids)
+
+        dbworkobj = self.cls.__dbworkobj__
+        referenced_attrs = set()
+        _collect_attr_names(self, referenced_attrs)
+
+        for attr in referenced_attrs:
+            table_name = db_work.get_table_name(self.cls.__table_name__, attr)
+            if table_name not in dbworkobj.tables:
+                db_field = self.cls.__db_fields__.get(attr)
+                if db_field is not None:
+                    dbworkobj.create_attribute_table(
+                        class_name=self.cls.__table_name__,
+                        attribute_name=attr,
+                        db_field=db_field,
+                    )
+        field_names = sorted(referenced_attrs) if referenced_attrs else list(self.cls.__db_fields__.keys())
+        temp = dbworkobj.found_ids_by_condition(class_name=self.cls.__table_name__, condition=self._get_condition_repr(), field_names=field_names)
         if temp['status_code'] != 200:
             return db_types.Ids()
         return db_types.Ids(temp['data'])
@@ -109,6 +127,50 @@ class Condition(ConditionCore):
 
     def __repr__(self):
         return f'({repr(self.left)} {self.operator} {repr(self.right)})'
+
+
+def _collect_attr_names(node, names: set):
+    """Recursively walk a Condition/AttributeObj tree, collecting the names of every attribute actually referenced by it."""
+    if isinstance(node, AttributeObj):
+        names.add(node.attr)
+    elif isinstance(node, Condition):
+        _collect_attr_names(node.left, names)
+        _collect_attr_names(node.right, names)
+
+
+def _try_fast_ids(cond):
+    """Recursively resolve a Condition tree using the index-friendly fast path, returning a plain Python set of matching ids, or None if any part of the tree can't be resolved this way"""
+    if not isinstance(cond, Condition):
+        return None
+
+    if hasattr(cond, 'lambda_operator'):
+        if cond.operator not in ('and', 'or'):
+            return None
+        left_ids = _try_fast_ids(cond.left)
+        if left_ids is None:
+            return None
+        right_ids = _try_fast_ids(cond.right)
+        if right_ids is None:
+            return None
+        return (left_ids & right_ids) if cond.operator == 'and' else (left_ids | right_ids)
+
+    if not isinstance(cond.left, AttributeObj):
+        return None
+    if isinstance(cond.right, ConditionCore):
+        return None
+    db_field = cond.cls.__db_fields__.get(cond.left.attr)
+    if db_field is None:
+        return None
+    temp = cond.cls.__dbworkobj__.found_ids_by_simple_condition(
+        class_name=cond.cls.__table_name__,
+        attribute_name=cond.left.attr,
+        operator=cond.operator,
+        value=cond.right,
+        db_field=db_field,
+    )
+    if temp is None or temp['status_code'] != 200:
+        return None
+    return temp['data']
 
 
 class DbAttributeDiscriptor:

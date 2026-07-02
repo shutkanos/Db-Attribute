@@ -184,6 +184,9 @@ class DbAttributeMetaclass(type):
             "            setattr(self, name, value.get_value())\n"
             "        else:\n"
             "            setattr(self, name, value)\n"
+            "    build_init = getattr(self.__class__, '__build_init__', None)\n"
+            "    if build_init is not None:\n"
+            f"        build_init(self)\n"
         )
 
         exec_globals = {
@@ -332,9 +335,10 @@ class DbAttribute:
         self_dict = object.__getattribute__(self, '__dict__')
         cls = object.__getattribute__(self, '__class__')
         all_attributes = object.__getattribute__(self, '__db_fields__')
+        db_descriptors = getattr(cls, '__db_descriptors__', {})
         for db_attr in all_attributes if attributes is None else all_attributes & attributes:
             if '_'+db_attr in self_dict:
-                cls.__dict__[db_attr].dump_attr(self)
+                db_descriptors.get(db_attr).dump_attr(self)
 
     def set_manual_dump_mode(self, attributes:set[str]=None):
         """
@@ -346,7 +350,8 @@ class DbAttribute:
         all_attributes = object.__getattribute__(self, '__db_fields__')
         self_dict = object.__getattribute__(self, '__dict__')
         for db_attr in (all_attributes if attributes is None else all_attributes.keys() & attributes):
-            self_dict['_'+db_attr] = getattr(self, db_attr)
+            if '_'+db_attr not in self_dict:
+                self_dict['_'+db_attr] = getattr(self, db_attr)
 
     def set_auto_dump_mode(self, attributes:set[str]=None):
         """
@@ -358,7 +363,7 @@ class DbAttribute:
         self.dump(attributes=attributes)
         self_dict = object.__getattribute__(self, '__dict__')
         all_attributes = object.__getattribute__(self, '__db_fields__')
-        for db_attr in all_attributes if attributes is None else all_attributes & attributes:
+        for db_attr in (all_attributes if attributes is None else all_attributes.keys() & attributes):
             if '_'+db_attr in self_dict:
                 del self_dict['_'+db_attr]
 
@@ -376,13 +381,14 @@ class DbAttribute:
     def delete_objs(cls, IDs: set[int] | int, attributes:set[str]=None):
         db_types.cheak_db_work_object(cls)
         all_attributes = object.__getattribute__(cls, '__db_fields__')
-        attributes = all_attributes if attributes is None else attributes & all_attributes
+        attributes = all_attributes.keys() if attributes is None else (attributes & all_attributes.keys())
         IDs = {IDs} if isinstance(IDs, int) else IDs
         dbworkobj = cls.__dbworkobj__
         clsname = cls.__table_name__
-        for ID in IDs:
-            for db_attr in attributes:
-                dbworkobj.del_attribute_value(class_name=clsname, attribute_name=db_attr, ID=ID)
+        for db_attr in attributes:
+            dbworkobj.del_attribute_values_batch(class_name=clsname, attribute_name=db_attr, ids=IDs)
+
+
 
     @classmethod
     def found(cls, **kwargs):

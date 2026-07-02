@@ -1,4 +1,5 @@
 import copy, ast, functools, inspect, sys
+import base64
 import copyreg
 import datetime
 import pickle
@@ -356,7 +357,7 @@ class DbClass:
         required param: _return_json - see documentation
         :param _return_json: if false - return dict, if true - return str: json.dumps(dict)
         """
-        data = pickle.dumps(self).decode('latin1')
+        data = base64.b64encode(pickle.dumps(self)).decode('ascii')
         if _return_json:
             return json.dumps({'t': self.__class__.__name__, 'd': data}, ensure_ascii=False)
         return {'t': self.__class__.__name__, 'd': data}
@@ -394,7 +395,7 @@ class DbClass:
             )
         if hasattr(loadcls, '_loads'):
             return loadcls._loads(tempdata, _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
-        return DbClassConverter.convert_to_db(pickle.loads(tempdata['d'].encode('latin1')), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
+        return DbClassConverter.convert_to_db(pickle.loads(base64.b64decode(tempdata['d'])), _obj_dbattribute=_obj_dbattribute, _name_attribute=_name_attribute, _first_container=_first_container)
 
 @DbClassDecorator(list_of_methodes_with_converted_arguments=['__iadd__'])
 class DbList(DbClass, list):

@@ -1,11 +1,22 @@
 import functools
 import json
+import operator as py_operator
 import orjson
 import collections
 
 import db_attribute.db_class as db_class
 import db_attribute.db_types as db_types
 import db_attribute
+
+
+_PY_COMPARISON_OPS = {
+    '=': py_operator.eq,
+    '!=': py_operator.ne,
+    '<': py_operator.lt,
+    '<=': py_operator.le,
+    '>': py_operator.gt,
+    '>=': py_operator.ge,
+}
 
 
 def get_default_value_from_type(attribute_type):
@@ -121,7 +132,9 @@ def convert_sql_value_to_attribute_value(sql_value, attribute_type, _obj_dbattri
     if attribute_type == bool:
         return {'status_code': 200, 'data': True if sql_value else False}
     if attribute_type is db_types.JsonType:
-        return {'status_code': 200, 'data': orjson.loads(sql_value)}
+        if isinstance(sql_value, (str, bytes, bytearray)):
+            return {'status_code': 200, 'data': orjson.loads(sql_value)}
+        return {'status_code': 200, 'data': sql_value}
     if issubclass(attribute_type, db_attribute.DbAttribute):
         return {'status_code': 200, 'data': attribute_type.get(id=sql_value)}
     if db_class.DbClassCheaker.this_support_class(attribute_type, this_is_cls=True) or db_class.DbClassCheaker.this_db_attribute_support_class(attribute_type, this_is_cls=True):
@@ -201,6 +214,20 @@ class Db_work:
         return {'status_code': 200, 'data': {i[0] for i in self.connobj.cur.fetchall()}}
 
     @sql_decorator
+    def _create_index(self, table_name: str, column: str = 'data'):
+        d = self._dialect
+        index_name = f"idx_{table_name}_{column}".replace(' ', '_')
+        quoted_table = d.quote(table_name)
+        quoted_index = d.quote(index_name)
+        quoted_column = d.quote(column)
+        try:
+            self.connobj.cur.execute(f"CREATE INDEX {quoted_index} ON {quoted_table} ({quoted_column})")
+            self.connobj.conn.commit()
+        except Exception:
+            pass
+        return {'status_code': 200}
+
+    @sql_decorator
     def _create_table(self, table_name: str, attributes: list[tuple[str, str]]):
         if table_name.lower() in self.tables:
             return {'status_code': 301}
@@ -251,6 +278,14 @@ class Db_work:
                 f"AND TABLE_NAME = '{table_name}';"
             )
             return {'status_code': 200, 'data': self.connobj.cur.fetchall()[-1][0]}
+        elif d.sql_name == 'PostgreSQL':
+            self.connobj.cur.execute(
+                f"SELECT data_type FROM information_schema.columns "
+                f"WHERE column_name = 'data' "
+                f"AND table_schema = 'public' "
+                f"AND table_name = '{table_name}';"
+            )
+            return {'status_code': 200, 'data': self.connobj.cur.fetchall()[-1][0]}
         else:
             self.connobj.cur.execute(f"PRAGMA table_info({d.quote(table_name)})")
             for row in self.connobj.cur.fetchall():
@@ -267,6 +302,22 @@ class Db_work:
         quoted = self._dialect.quote(table_name)
         self.connobj.cur.execute(f"SELECT * FROM {quoted} WHERE id {operator} {ID}")
         return {'status_code': 200, 'data': [i[-1] for i in self.connobj.cur.fetchall()]}
+
+    @sql_decorator
+    def _get_values_by_ids(self, table_name: str, ids, ignore_302: bool = False):
+        """
+        Fetch (id -> data) for many ids from a single attribute table in one round-trip.
+        """
+        ids = list({int(i) for i in ids})
+        if not ids:
+            return {'status_code': 200, 'data': {}}
+        if table_name not in self.tables:
+            if ignore_302:
+                return {'status_code': 200, 'data': {}}
+            return {'status_code': 302}
+        quoted = self._dialect.quote(table_name)
+        self.connobj.cur.execute(self._dialect.select_by_ids_sql(quoted, ids))
+        return {'status_code': 200, 'data': {row[0]: row[1] for row in self.connobj.cur.fetchall()}}
 
     @sql_decorator
     def _get_ids_by_value(self, table_name: str, value, operator: str = "=", ignore_302: bool = False):
@@ -326,6 +377,23 @@ class Db_work:
         return {'status_code': 200}
 
     @sql_decorator
+    def _del_values_by_ids(self, table_name: str, ids, ignore_302: bool = False):
+        """
+        Delete many rows from a single attribute table in one round-trip.
+        """
+        ids = list({int(i) for i in ids})
+        if not ids:
+            return {'status_code': 200}
+        if table_name not in self.tables:
+            if ignore_302:
+                return {'status_code': 200}
+            return {'status_code': 302}
+        quoted = self._dialect.quote(table_name)
+        self.connobj.cur.execute(self._dialect.delete_by_ids_sql(quoted, ids))
+        self.connobj.conn.commit()
+        return {'status_code': 200}
+
+    @sql_decorator
     def _add_value_by_id(self, table_name: str, ID: int, value: str, param=None, ignore_302: bool = False):
         """
         Insert or update a (id, data) row.
@@ -342,6 +410,34 @@ class Db_work:
                 self.connobj.cur.execute(sql, args)
             else:
                 self.connobj.cur.execute(d.upsert_data_sql(quoted, ID, value))
+            self.connobj.conn.commit()
+        except Exception as e:
+            if d.is_table_not_found_error(e):
+                return {'status_code': 200} if ignore_302 else {'status_code': 302}
+            raise
+        return {'status_code': 200}
+
+    @sql_decorator
+    def _add_values_by_ids(self, table_name: str, rows: dict, ignore_302: bool = False):
+        """
+        Insert or update many (id, data) rows into a single attribute table in one transaction.
+
+        :param rows: {id: (value, param), ...}
+                     value — SQL literal fragment, or '__PARAM__' when param is not None
+                     param — Python value to bind when value == '__PARAM__', else None
+        :return: {'status_code': 200}
+        """
+        if not rows:
+            return {'status_code': 200}
+        try:
+            d = self._dialect
+            quoted = d.quote(table_name)
+            for ID, (value, param) in rows.items():
+                if param is not None:
+                    sql, args = d.upsert_data_param_sql(quoted, ID, param)
+                    self.connobj.cur.execute(sql, args)
+                else:
+                    self.connobj.cur.execute(d.upsert_data_sql(quoted, ID, value))
             self.connobj.conn.commit()
         except Exception as e:
             if d.is_table_not_found_error(e):
@@ -368,7 +464,7 @@ class Db_work:
             d = self._dialect
             quoted = d.quote(table_name)
             self.connobj.cur.execute(d.new_id_sql(quoted))
-            next_id = self.connobj.cur.lastrowid
+            next_id = d.extract_new_id(self.connobj.cur)
             self.connobj.conn.commit()
         except Exception as e:
             if d.is_table_not_found_error(e):
@@ -404,6 +500,9 @@ class Db_work:
         temp_data = self._create_table(table_name=table_name, attributes=[('data', attribute_table_type)])
         if temp_data['status_code'] != 200:
             return temp_data
+        is_fk_type = isinstance(attribute_type, type) and issubclass(attribute_type, db_attribute.DbAttribute)
+        if attribute_type in (str, int, float, bool) or is_fk_type:
+            self._create_index(table_name=table_name)
         return {'status_code': 200}
 
     def create_id_table(self, class_name: str):
@@ -417,13 +516,46 @@ class Db_work:
             return temp_data
         value = temp_data['data']
         param = temp_data['param']
-        # For MySQL, convert __PARAM__ back to an inline CAST literal
         if value == '__PARAM__' and self._dialect.sql_name == 'MySQL':
             raw = json.dumps(param, ensure_ascii=False)
             value = self._dialect.json_cast(raw)
             param = None
+        if attribute_type == str and value != '__PARAM__' and self._dialect.sql_name == 'PostgreSQL':
+            value = self._dialect.quote_string_literal(data)
         table_name = get_table_name(class_name=class_name, attribute_name=attribute_name)
         return self._add_value_by_id(table_name=table_name, ID=ID, value=value, param=param, ignore_302=ignore_302)
+
+
+    def add_attribute_values_batch(self, class_name: str, attribute_name: str, values: dict, attribute_type=None, _cls_dbattribute=None, ignore_302: bool = False):
+        """
+        Convert and write this attribute's value for many ids of one class, in a single transaction.
+
+        :param class_name: ex: 'User'
+        :param attribute_name: ex: 'name'
+        :param values: {id: python_value, ...}
+        :param attribute_type: python type of the attribute (looked up from _cls_dbattribute if omitted)
+        :param _cls_dbattribute: class used to resolve attribute_type when it's not given
+        :param ignore_302: if True and the table doesn't exist, treat as success (no-op)
+        :return: {'status_code': 200} on success, or the first conversion error encountered
+        """
+        if attribute_type is None:
+            attribute_type = object.__getattribute__(_cls_dbattribute, '__db_fields__')[attribute_name].python_type
+        rows = {}
+        for ID, data in values.items():
+            temp_data = convert_attribute_value_to_sql_param(data, attribute_type=attribute_type)
+            if temp_data['status_code'] != 200:
+                return temp_data
+            value = temp_data['data']
+            param = temp_data['param']
+            if value == '__PARAM__' and self._dialect.sql_name == 'MySQL':
+                raw = json.dumps(param, ensure_ascii=False)
+                value = self._dialect.json_cast(raw)
+                param = None
+            if attribute_type == str and value != '__PARAM__' and self._dialect.sql_name == 'PostgreSQL':
+                value = self._dialect.quote_string_literal(data)
+            rows[ID] = (value, param)
+        table_name = get_table_name(class_name=class_name, attribute_name=attribute_name)
+        return self._add_values_by_ids(table_name=table_name, rows=rows, ignore_302=ignore_302)
 
     def add_id(self, class_name: str, ID: int, ignore_302: bool = False):
         return self._add_id(table_name=get_id_table_name(class_name), ID=ID, ignore_302=ignore_302)
@@ -441,12 +573,54 @@ class Db_work:
             attribute_type = object.__getattribute__(_obj_dbattribute, '__db_fields__')[attribute_name].python_type
         return convert_sql_value_to_attribute_value(value, attribute_type=attribute_type, _obj_dbattribute=_obj_dbattribute, attribute_name=attribute_name)
 
+    def get_attribute_values_batch(self, class_name: str, attribute_name: str, ids, attribute_type=None, _cls_dbattribute=None, _obj_dbattribute=None, ignore_302: bool = False):
+        """
+        Fetch and convert this attribute's value for many ids of one class, in a single round-trip.
+
+        :param class_name: ex: 'User'
+        :param attribute_name: ex: 'name'
+        :param ids: iterable of int ids
+        :param attribute_type: python type of the attribute (looked up from _cls_dbattribute if omitted)
+        :param _cls_dbattribute: class used to resolve attribute_type when it's not given
+        :param _obj_dbattribute: passed through to the value converter (for DbClass linkage), used for every id
+        :param ignore_302: if True and the table doesn't exist, return {} instead of an error
+        :return: {'status_code': 200, 'data': {id: python_value, ...}}  ids missing in the table are simply absent {'status_code': <error>} on failure (mirrors get_attribute_value's error codes, applied to the whole batch)
+        """
+        if attribute_type is None:
+            attribute_type = object.__getattribute__(_cls_dbattribute, '__db_fields__')[attribute_name].python_type
+        table_name = get_table_name(class_name=class_name, attribute_name=attribute_name)
+        temp_data = self._get_values_by_ids(table_name=table_name, ids=ids, ignore_302=ignore_302)
+        if temp_data['status_code'] != 200:
+            return temp_data
+        result = {}
+        for ID, raw_value in temp_data['data'].items():
+            converted = convert_sql_value_to_attribute_value(
+                raw_value, attribute_type=attribute_type, _obj_dbattribute=_obj_dbattribute, attribute_name=attribute_name
+            )
+            if converted['status_code'] != 200:
+                return converted
+            result[ID] = converted['data']
+        return {'status_code': 200, 'data': result}
+
     def get_all_ids(self, class_name: str, ignore_302: bool = False):
         return self._get_all_ids(table_name=get_id_table_name(class_name=class_name), ignore_302=ignore_302)
 
     def del_attribute_value(self, class_name: str, attribute_name: str, ID: int, ignore_302: bool = False):
         table_name = get_table_name(class_name=class_name, attribute_name=attribute_name)
         return self._del_value_by_id(table_name=table_name, ID=ID, ignore_302=ignore_302)
+
+    def del_attribute_values_batch(self, class_name: str, attribute_name: str, ids, ignore_302: bool = True):
+        """
+        Delete this attribute's value for many ids of one class, in a single round-trip.
+
+        :param class_name: ex: 'User'
+        :param attribute_name: ex: 'name'
+        :param ids: iterable of int ids
+        :param ignore_302: if True (default — matches delete_objs's "best effort" semantics), a missing table is treated as already-deleted rather than an error
+        :return: {'status_code': 200}
+        """
+        table_name = get_table_name(class_name=class_name, attribute_name=attribute_name)
+        return self._del_values_by_ids(table_name=table_name, ids=ids, ignore_302=ignore_302)
 
     def found_ids_by_value(self, class_name: str, attribute_name: str, data, attribute_type=None, _cls_dbattribute=None, operator: str = "=", ignore_302: bool = False):
         """
@@ -471,6 +645,70 @@ class Db_work:
     def found_ids_by_condition(self, class_name: str, condition: str, field_names=None, ignore_302: bool = False):
         return self._get_ids_by_condition(class_name=class_name.lower(), condition=condition, field_names=field_names, ignore_302=ignore_302)
 
+    def found_ids_by_simple_condition(self, class_name: str, attribute_name: str, operator: str, value, db_field: db_types.DbField, ignore_302: bool = False):
+        """
+        Index-friendly fast path for a single 'attr OP literal' search (the
+        common case behind Condition.found(), e.g. `User.name == 'Bob'`).
+
+        :return: {'status_code': 200, 'data': set_of_ids} on success, or None if this (type, operator) combination isn't supported by the fast path — the caller should fall back to the general condition-based search.
+        """
+        python_type = db_field.python_type
+        is_fk_type = isinstance(python_type, type) and issubclass(python_type, db_attribute.DbAttribute)
+        if python_type not in (str, int, float, bool) and not is_fk_type:
+            return None
+        if operator not in _PY_COMPARISON_OPS:
+            return None
+
+        temp = convert_attribute_value_to_sql_value(value, python_type, dialect=self._dialect)
+        if temp['status_code'] != 200:
+            return None
+        value_literal = temp['data']
+
+        table_name = get_table_name(class_name=class_name, attribute_name=attribute_name)
+        id_table_name = get_id_table_name(class_name=class_name)
+        return self._get_ids_by_simple_condition(
+            table_name=table_name, id_table_name=id_table_name,
+            operator=operator, value_literal=value_literal,
+            db_field=db_field, value=value, is_fk_type=is_fk_type,
+            ignore_302=ignore_302,
+        )
+
+    @sql_decorator
+    def _get_ids_by_simple_condition(self, table_name: str, id_table_name: str, operator: str, value_literal: str, db_field: db_types.DbField, value, is_fk_type: bool, ignore_302: bool = False):
+        if table_name not in self.tables:
+            if ignore_302:
+                return {'status_code': 200, 'data': set()}
+            return {'status_code': 302}
+        d = self._dialect
+        quoted_attr = d.quote(table_name)
+        op_sql = '<>' if operator == '!=' else operator
+        self.connobj.cur.execute(f"SELECT id FROM {quoted_attr} WHERE data {op_sql} {value_literal}")
+        result_ids = {row[0] for row in self.connobj.cur.fetchall()}
+
+        if db_field.search_default and not db_field.default_is_missing():
+            default_value = db_field.get_default()
+            cmp_default, cmp_value = default_value, value
+            try:
+                if is_fk_type:
+                    cmp_default = cmp_default if isinstance(cmp_default, int) else object.__getattribute__(cmp_default, 'id')
+                    cmp_value = cmp_value if isinstance(cmp_value, int) else object.__getattribute__(cmp_value, 'id')
+                default_matches = _PY_COMPARISON_OPS[operator](cmp_default, cmp_value)
+            except (TypeError, AttributeError):
+                default_matches = False
+            if default_matches and id_table_name in self.tables:
+                quoted_id = d.quote(id_table_name)
+                self.connobj.cur.execute(f"SELECT COUNT(*) FROM {quoted_id}")
+                id_count = self.connobj.cur.fetchone()[0]
+                self.connobj.cur.execute(f"SELECT COUNT(*) FROM {quoted_attr}")
+                attr_count = self.connobj.cur.fetchone()[0]
+                if attr_count < id_count:
+                    self.connobj.cur.execute(
+                        f"SELECT {quoted_id}.id FROM {quoted_id} LEFT JOIN {quoted_attr} "
+                        f"ON {quoted_id}.id = {quoted_attr}.id WHERE {quoted_attr}.id IS NULL"
+                    )
+                    result_ids |= {row[0] for row in self.connobj.cur.fetchall()}
+        return {'status_code': 200, 'data': result_ids}
+
     def cheak_exists_attribute_table(self, class_name: str, attribute_name: str):
         return get_table_name(class_name, attribute_name) in self.tables
 
@@ -482,20 +720,9 @@ if __name__ == '__main__':
     from config import host, user, password, database
     import db_attribute.connector as connector
 
-    connect_obj = connector.MySQLConnection(host=host, user=user, password=password, database=database)
-    db_work_obj = Db_work(connect_obj)
-    #print(db_work_obj.class_names)
-    #print(db_work_obj.tables)
-    #db_work_obj.create_attribute_table('User', 'name', str)
-    #db_work_obj.add_attribute_value('User', 'name', 10, 'Bob', str)
-    #print(db_work_obj.get_attribute_value('User', 'name', 10, str))
+    db_work_obj = Db_work(connector.MySQLConnection(host=host, user=user, password=password, database=database))
     print(db_work_obj.tables)
     print(db_work_obj.class_names)
-    #db_work_obj._deleate_table('cls dbattributemetaclass ids')
     #for i in db_work_obj.tables:
     #    db_work_obj._deleate_table(i)
     #    print(i)
-
-    #db_work_obj.deleate_table('cls_a_atr_b_obj')
-
-    #db_work_obj.update_value_by_id(table_name='cls_user_atr_age', ID=12, value=10, cheak_exists_value=False)
